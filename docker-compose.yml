@@ -1,0 +1,19 @@
+services:
+  odoo-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: odoo-mcp:latest
+    restart: unless-stopped
+    environment:
+      ODOO_URL: ${ODOO_URL:?ODOO_URL is required}
+      ODOO_DB: ${ODOO_DB:?ODOO_DB is required}
+      ODOO_API_KEY: ${ODOO_API_KEY:?ODOO_API_KEY is required}
+      ODOO_MCP_TRANSPORT: http
+      ODOO_MCP_ADDR: :8085
+      ODOO_READ_ONLY: ${ODOO_READ_ONLY:-false}
+      ODOO_AUDIT_LOG: ${ODOO_AUDIT_LOG:-true}
+      ODOO_LOG_LEVEL: ${ODOO_LOG_LEVEL:-info}
+      ODOO_RATE_LIMIT_RPS: ${ODOO_RATE_LIMIT_RPS:-10}
+    ports:
+      - "${HOST_PORT:-8085}:8085"

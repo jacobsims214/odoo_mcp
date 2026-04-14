@@ -1,0 +1,49 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+      POSTGRES_DB: odoo19
+    volumes:
+      - odoo_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  odoo:
+    image: odoo:19
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: odoo
+    ports:
+      - "8069:8069"
+    volumes:
+      - odoo_data:/var/lib/odoo
+
+  odoo-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - odoo
+    environment:
+      ODOO_URL: http://odoo:8069
+      ODOO_DB: odoo19
+      ODOO_API_KEY: ${ODOO_API_KEY:?Set ODOO_API_KEY in .env}
+      ODOO_MCP_TRANSPORT: http
+      ODOO_MCP_ADDR: :8085
+      ODOO_LOG_LEVEL: debug
+      ODOO_AUDIT_LOG: true
+    ports:
+      - "8085:8085"
+
+volumes:
+  odoo_db_data:
+  odoo_data:
