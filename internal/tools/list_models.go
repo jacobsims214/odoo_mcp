@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -63,10 +64,10 @@ func makeListModelsHandler(deps Deps) server.ToolHandlerFunc {
 		}
 
 		// 5. Return JSON result
-		result, err := mcp.NewToolResultJSON(filtered)
+		jsonBytes, err := json.Marshal(filtered)
 		if err != nil {
 			return toolErrorf("encode result: %s", err), nil
 		}
-		return result, nil
+		return mcp.NewToolResultText(string(jsonBytes)), nil
 	}
 }

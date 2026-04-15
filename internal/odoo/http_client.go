@@ -158,7 +158,7 @@ func (c *HTTPClient) Read(ctx context.Context, model string, ids []int64, fields
 // Create creates a new record and returns its ID.
 func (c *HTTPClient) Create(ctx context.Context, model string, values map[string]interface{}) (int64, error) {
 	body := map[string]interface{}{
-		"values": values,
+		"vals": values,
 	}
 
 	var result int64
