@@ -35,6 +35,8 @@ staticClients:
 - id: claude-desktop
   name: Claude Desktop
   public: true
+  redirectURIs:
+  - https://claude.ai/api/mcp/auth_callback
   grantTypes:
   - authorization_code
   - refresh_token
