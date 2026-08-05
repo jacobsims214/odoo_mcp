@@ -6,7 +6,7 @@
 
 # ── Global ──────────────────────────────────────────────────────────────────────
 global:
-  domain: api.cloud.avware.io
+  domain: odoo-mcp.cloud.avware.io
 
 # ── MCP Server ──────────────────────────────────────────────────────────────────
 mcp:
@@ -23,8 +23,8 @@ mcp:
     STATELESS_SESSIONS: "true"
 
     # ── URLs ──────────────────────────────────────────────────────────────
-    ODOO_MCP_PUBLIC_URL: "https://api.cloud.avware.io/mcp"
-    DEX_PUBLIC_URL: "https://api.cloud.avware.io/dex"
+    ODOO_MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
+    DEX_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/dex"
     DEX_INTERNAL_URL: "http://odoo-mcp-dex:5556/dex"
 
     # ── Odoo Connection ───────────────────────────────────────────────────
@@ -59,7 +59,7 @@ mcp:
 dex:
   replicaCount: 2
 
-  issuerURL: "https://api.cloud.avware.io/dex"
+  issuerURL: "https://odoo-mcp.cloud.avware.io/dex"
 
   # ── Database ────────────────────────────────────────────────────────────
   # Host is auto-templated from CNPG cluster name — unset to use the default
@@ -97,10 +97,10 @@ mcpoauth:
 
   env:
     BROKER_PORT: "8090"
-    BROKER_PUBLIC_URL: "https://api.cloud.avware.io"
-    DEX_PUBLIC_URL: "https://api.cloud.avware.io/dex"
+    BROKER_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io"
+    DEX_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/dex"
     DEX_URL: "http://odoo-mcp-dex:5556/dex"
-    MCP_PUBLIC_URL: "https://api.cloud.avware.io/mcp"
+    MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
     # Dex gRPC — no TLS for internal cluster communication
     DEX_GRPC_ADDR: "odoo-mcp-dex:5557"
 
