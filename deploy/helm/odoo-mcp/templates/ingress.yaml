@@ -13,86 +13,15 @@ spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
   {{- end }}
-  {{- if .Values.ingress.tls.enabled }}
-  tls:
-    - hosts:
-        - {{ .Values.ingress.hostname }}
-      secretName: {{ .Values.ingress.tls.secretName }}
-  {{- end }}
   rules:
     - host: {{ .Values.ingress.hostname }}
       http:
         paths:
-          - path: /authorize
+          - path: /
             pathType: Prefix
             backend:
               service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcpoauth
+                name: {{ include "odoo-mcp.fullname" . }}-envoy
                 port:
-                  number: {{ .Values.mcpoauth.service.port }}
-          - path: /.well-known/oauth-authorization-server
-            pathType: Exact
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcpoauth
-                port:
-                  number: {{ .Values.mcpoauth.service.port }}
-          - path: /.well-known/oauth-protected-resource
-            pathType: Exact
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcpoauth
-                port:
-                  number: {{ .Values.mcpoauth.service.port }}
-          - path: /mcp
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcp
-                port:
-                  number: {{ .Values.mcp.service.port }}
-          - path: /.well-known
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcp
-                port:
-                  number: {{ .Values.mcp.service.port }}
-          - path: /register-key
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcp
-                port:
-                  number: {{ .Values.mcp.service.port }}
-          - path: /health
-            pathType: Exact
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcp
-                port:
-                  number: {{ .Values.mcp.service.port }}
-          - path: /admin
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcp
-                port:
-                  number: {{ .Values.mcp.service.port }}
-          - path: /register
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-mcp
-                port:
-                  number: {{ .Values.mcp.service.port }}
-          {{- if .Values.dex.enabled }}
-          - path: /dex
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "odoo-mcp.fullname" . }}-dex
-                port:
-                  number: {{ .Values.dex.service.port }}
-          {{- end }}
+                  number: {{ .Values.envoy.port }}
 {{- end }}

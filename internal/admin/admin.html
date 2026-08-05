@@ -363,8 +363,13 @@ async function exchangeCodeForToken(code) {
   }
 
   const data = await resp.json();
+  // Use id_token (JWT) for Bearer auth — the middleware verifies it via Dex JWKS.
+  // Fall back to access_token if no id_token is present.
+  if (data.id_token) {
+    return data.id_token;
+  }
   if (!data.access_token) {
-    throw new Error("No access_token in response");
+    throw new Error("No token in response");
   }
   return data.access_token;
 }

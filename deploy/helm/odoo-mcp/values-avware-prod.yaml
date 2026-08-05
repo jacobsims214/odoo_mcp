@@ -109,15 +109,25 @@ mcpoauth:
       memory: 128Mi
 
 # ── Envoy ───────────────────────────────────────────────────────────────────────
-# Disabled — AWS ALB controller handles ingress instead
+# Envoy sits as the gateway behind the ALB, routing traffic to the correct backend
+# (MCP, Dex, mcpoauth) based on path prefixes.
 envoy:
-  enabled: false
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: envoyproxy/envoy
+    tag: v1.32-latest
+    pullPolicy: IfNotPresent
+  port: 8088
+  adminPort: 9901
 
 # ── Ingress (AWS ALB) ──────────────────────────────────────────────────────────
+# The ALB terminates TLS and forwards all traffic to the Envoy service,
+# which handles path-based routing internally (MCP, Dex, mcpoauth).
 ingress:
   enabled: true
   className: "alb"
-  hostname: odoo-mcp.cloud.avware.io
+  hostname: api.cloud.avware.io
 
   # TLS is terminated at the ALB via certificate ARN annotation
   # Do not use the standard K8s TLS block — ALB manages TLS itself
