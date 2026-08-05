@@ -9,10 +9,12 @@ spec:
   instances: {{ .Values.cnpg.instances }}
   storage:
     size: {{ .Values.cnpg.storageSize }}
-  enableSuperuserAccess: true
-  databases:
-    mcp: {{ .Values.cnpg.databases.mcp | quote }}
-    dex: {{ .Values.cnpg.databases.dex | quote }}
+  enableSuperuserAccess: true  # Creates {cluster}-superuser secret with postgres password
+  bootstrap:
+    initdb:
+      databases:              # CNPG requires databases under bootstrap.initdb, not at spec root
+        mcp: {}               # Creates database named mcp
+        dex: {}               # Creates database named dex
   postgresql:
     parameters:
       max_connections: "200"
