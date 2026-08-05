@@ -63,3 +63,6 @@ data:
       {{- else }}
       - http://localhost:8088/admin
       {{- end }}
+    - id: claude-desktop
+      name: Claude Desktop
+      public: true
