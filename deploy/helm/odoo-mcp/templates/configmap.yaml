@@ -20,6 +20,7 @@ data:
   STATELESS_SESSIONS: {{ .Values.mcp.env.STATELESS_SESSIONS | default "false" | quote }}
   ODOO_MCP_PUBLIC_URL: {{ .Values.mcp.env.ODOO_MCP_PUBLIC_URL | quote }}
   DEX_PUBLIC_URL: {{ .Values.mcp.env.DEX_PUBLIC_URL | quote }}
+  DEX_GRPC_ADDR: {{ printf "%s-dex:5557" (include "odoo-mcp.fullname" .) | quote }}
   DATABASE_URL: {{ .Values.mcp.env.DATABASE_URL | default (printf "postgres://postgres@%s-cnpg-rw.%s.svc.cluster.local:5432/mcp?sslmode=disable" (include "odoo-mcp.fullname" .) .Release.Namespace) | quote }}
 ---
 apiVersion: v1

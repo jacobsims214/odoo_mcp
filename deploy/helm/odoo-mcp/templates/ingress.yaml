@@ -51,6 +51,20 @@ spec:
                 name: {{ include "odoo-mcp.fullname" . }}-mcp
                 port:
                   number: {{ .Values.mcp.service.port }}
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcp
+                port:
+                  number: {{ .Values.mcp.service.port }}
+          - path: /register
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcp
+                port:
+                  number: {{ .Values.mcp.service.port }}
           {{- if .Values.dex.enabled }}
           - path: /dex
             pathType: Prefix
