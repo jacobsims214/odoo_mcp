@@ -237,6 +237,8 @@ cnpg:
 secrets:
   # Shared secret between Dex and the MCP server for OIDC
   dexClientSecret: ""
+  # Encryption key for API key store (32-byte hex, generated via secrets.token_hex(32))
+  keyStoreEncryptionKey: ""
   # PostgreSQL password for Dex storage
   # For the amp-postgres CNPG cluster, the password is stored in the
   # amp-postgres-app secret in the amp namespace. Retrieve with:

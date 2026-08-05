@@ -132,6 +132,12 @@ spec:
                   name: {{ include "odoo-mcp.fullname" . }}-secrets
                   key: ODOO_API_KEY
                   optional: true
+            - name: KEY_STORE_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  key: KEY_STORE_ENCRYPTION_KEY
+                  optional: true
             - name: DEX_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:

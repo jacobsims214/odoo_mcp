@@ -103,16 +103,28 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	// Step 3: Create the Dex password entry. The dexclient handles bcrypt hashing.
 	// The returned string is the email (used as the Dex user ID).
+	// If the user already exists, delete and recreate with the new password so the
+	// admin can set a fresh password for an existing user.
 	dexUserID, err := h.dexClient.CreatePassword(ctx, req.Username, req.Password)
 	if err != nil {
-		slog.Error("admin: CreateUser: create dex password", "error", err)
-		// CreatePassword returns a specific error for AlreadyExists.
 		if strings.Contains(err.Error(), "already exists") {
-			writeJSON(w, http.StatusConflict, map[string]string{"error": "user already exists"})
+			slog.Info("admin: CreateUser: user already exists in Dex, deleting and recreating", "username", req.Username)
+			if delErr := h.dexClient.DeletePassword(ctx, req.Username); delErr != nil {
+				slog.Error("admin: CreateUser: failed to delete existing Dex password", "error", delErr)
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to update existing user"})
+				return
+			}
+			dexUserID, err = h.dexClient.CreatePassword(ctx, req.Username, req.Password)
+			if err != nil {
+				slog.Error("admin: CreateUser: failed to recreate Dex password", "error", err)
+				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("failed to create Dex password: %v", err)})
+				return
+			}
+		} else {
+			slog.Error("admin: CreateUser: failed to create Dex password", "error", err)
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("failed to create Dex password: %v", err)})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("failed to create Dex user: %v", err)})
-		return
 	}
 
 	// Step 4: Encrypt the API key.
