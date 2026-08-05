@@ -1,0 +1,23 @@
+{{- if .Values.dex.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-dex
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dex
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.dex.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 5557
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    {{- include "odoo-mcp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: dex
+{{- end }}

@@ -1,0 +1,140 @@
+# ── AvWare Production Values for Odoo MCP ───────────────────────────────────────
+# Deployed to AvWare EKS cluster via AWS ALB controller ingress.
+# Uses existing CNPG PostgreSQL database for Dex storage.
+# No TLS for internal cluster gRPC communication (Dex <-> mcpoauth).
+# TLS is terminated at the ALB via AWS Certificate Manager.
+
+# ── Global ──────────────────────────────────────────────────────────────────────
+global:
+  domain: odoo-mcp.cloud.avware.io
+
+# ── MCP Server ──────────────────────────────────────────────────────────────────
+mcp:
+  replicaCount: 3
+
+  image:
+    repository: ghcr.io/jacobsims214/amp/odoo-mcp
+    tag: latest
+    pullPolicy: Always
+
+  env:
+    # ── Authentication ────────────────────────────────────────────────────
+    ODOO_MCP_AUTH_MODE: "per-session"
+    STATELESS_SESSIONS: "true"
+
+    # ── URLs ──────────────────────────────────────────────────────────────
+    ODOO_MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
+    DEX_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/dex"
+    DEX_INTERNAL_URL: "http://odoo-mcp-dex:5556/dex"
+
+    # ── Logging ───────────────────────────────────────────────────────────
+    ODOO_LOG_LEVEL: "info"
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ── Dex (OIDC Provider) ────────────────────────────────────────────────────────
+dex:
+  replicaCount: 2
+
+  issuerURL: "https://odoo-mcp.cloud.avware.io/dex"
+
+  # Dex uses existing CNPG database — no PVC needed
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    existingClaim: ""
+
+  # No TLS for internal cluster gRPC communication
+  grpcTls: {}
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ── MCP OAuth Broker (mcpoauth) ────────────────────────────────────────────────
+mcpoauth:
+  enabled: true
+  replicaCount: 2
+
+  image:
+    repository: ghcr.io/jacobsims214/amp/odoo-mcp-mcpoauth
+    tag: latest
+    pullPolicy: Always
+
+  env:
+    BROKER_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io"
+    DEX_URL: "http://odoo-mcp-dex:5556/dex"
+    MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
+    # Dex gRPC — no TLS for internal cluster communication
+    DEX_GRPC_ADDR: "odoo-mcp-dex:5557"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# ── Envoy ───────────────────────────────────────────────────────────────────────
+# Disabled — AWS ALB controller handles ingress instead
+envoy:
+  enabled: false
+
+# ── Ingress (AWS ALB) ──────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  className: alb
+  hostname: odoo-mcp.cloud.avware.io
+
+  # TLS is terminated at the ALB via certificate ARN annotation
+  # Do not use the standard K8s TLS block — ALB manages TLS itself
+  tls:
+    enabled: false
+
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # Set the certificate ARN at deploy time via --set or External Secrets
+    alb.ingress.kubernetes.io/certificate-arn: ""
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=3600
+
+# ── Valkey (Session Cache) ─────────────────────────────────────────────────────
+valkey:
+  enabled: true
+  architecture: standalone
+
+  auth:
+    enabled: false
+    sentinel: false
+
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+      storageClass: ""
+
+# ── Secrets (set via --set or External Secrets Operator) ───────────────────────
+secrets:
+  # Dex PostgreSQL password for the existing CNPG database
+  # Retrieve from: kubectl get secret -n amp amp-postgres-app -o jsonpath='{.data.password}' | base64 -d
+  dexDbPassword: ""
+  # Dex OIDC client shared secret
+  dexClientSecret: ""

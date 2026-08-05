@@ -1,0 +1,207 @@
+# Local Docker Desktop deployment values
+namespace: odoo-mcp
+
+# Use local registry images
+mcp:
+  image:
+    repository: host.docker.internal:5001/odoo-mcp
+    tag: latest
+    pullPolicy: Always
+  env:
+    ODOO_API_KEY: "3f9927cfffa3033795537094d47236f0c31193f1"
+    DEX_ISSUER_URL: http://localhost:8088/dex
+    ODOO_MCP_PUBLIC_URL: http://localhost:8088/mcp
+    DATABASE_URL: "postgres://postgres@cnpg-rw:5432/mcp?sslmode=disable"
+    STATELESS_SESSIONS: "false"
+  service:
+    port: 8080
+  replicaCount: 1
+
+dex:
+  enabled: true
+  image:
+    repository: ghcr.io/dexidp/dex
+    tag: v2.42.0
+    pullPolicy: IfNotPresent
+  issuerURL: http://localhost:8088/dex
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 100Mi
+  grpcTls:
+    caCert: |
+      -----BEGIN CERTIFICATE-----
+      MIIFDTCCAvWgAwIBAgIUHq0JGWWOxC+FbMG6FteQdTiXK9owDQYJKoZIhvcNAQEL
+      BQAwFjEUMBIGA1UEAwwLRGV4IGdSUEMgQ0EwHhcNMjYwODA0MTQ1NzQzWhcNMzYw
+      ODAxMTQ1NzQzWjAWMRQwEgYDVQQDDAtEZXggZ1JQQyBDQTCCAiIwDQYJKoZIhvcN
+      AQEBBQADggIPADCCAgoCggIBALPwmhTykSe9Rv67vaMQLm9UfdEX2D1vU+uidR/b
+      tHV2jXw9jdTjY49fU3UCLAvrehNr4+2VTNhW4YxIx38qagknGWVc2JASwkyyVl+v
+      6M53HlruAZuL4oZAQN5C3R04Yi0RYPx6EwqHx/D/qw+mV+d3kpDEGkmf5/RPwcVb
+      gs6ExeHc++PJoWoszB66Ea+qMqt92E+Hnmn4Bmgpzbr1oBXXSFAY3ENYUWpKli5f
+      Rc5WQPXKkakg8T7OTTihL8Tqb6UBpjcfq2FkLJ9jJJfYFzQkYSLJq11YfwK8kH3D
+      zvgnybVTRiMw3doKgDddmJs88htHI/IXpQMcRNHcei28JVa8mfuzUmt4bFgZDy3q
+      QVx4NFEWyHQ1QEo/xGqnIwWmWc2aOl6Z+fjvw1JCf0IbQWsc+aAAkjKAqpbX9kWF
+      8v4hFoex1G8/9IbPjHAj9hHoF1CnN1DTrMD+UEkEXGyw9mLlG0oLpZf00EPtptvk
+      3ktY8tzzv8iMC7I0SP15UOXzvtgwGqp/89sITVQK3mq7yEjvvt4oqRN1mzVDWh6s
+      9qZF9Th1JND09IamktOF12fjTULh+0R6I8zZeayGItJITDUurAlleTrUoPblZxDt
+      RTUmJeRwb/pXXNyBme9n/Gz07qDaPH8TlAsMbw1refCodrFh3vEN4qBiYZ5y5YJf
+      6DeBAgMBAAGjUzBRMB0GA1UdDgQWBBTCwvV14uC4loE00OKEcEPvvrBHHDAfBgNV
+      HSMEGDAWgBTCwvV14uC4loE00OKEcEPvvrBHHDAPBgNVHRMBAf8EBTADAQH/MA0G
+      CSqGSIb3DQEBCwUAA4ICAQCn52cPeSlkA2ogqaFHQ181S6iidAthBNsHe9G6jtfV
+      8fcfOcnE2Y02w0D8RKvgi7Yul0yJtqJ8OmIEcqqzdymZKZQl68gY+IB9qImtOi/V
+      lSduLpOe5WZkXdg3bfmmoo0nQvv9MHjQC3IWBfU1bgtWNnpykntGnq5PMWTRbLWc
+      AcAItbVEQkInumFtK2OnrTqfZmetcr8nN6V0Bxy34bCFwJqS2C3n/dEHmqU7QZ7k
+      TAHMGXaX4FOQt/54/8osobElq0ZKc2+TMNG1iFsyKlPh/ipZBfIDNbVV9llLUXyn
+      DBBFdUHVXPF8bBo4LUh9Ujv3KzOvxrvvkZdZ1Ymjd2e+Ac44xYhauWsEG9NaY9NI
+      GxyEv5EL6tGBNxErVYEVZ3ZKur7+Jr6DSbhd7J0UOqTfk4BAcFBpIEbDX1cGboa9
+      BDtv44SAXlY3Y5kyoBq71y5lZ5T8ppukWmLSbjVMh0ic0c7vNP3dlobISwEdwfel
+      zjmUPxWfgwoOTXw3DgXet3WuWmhxDWEdzPjQdDlEssVG1uXa17/n1+QAfqa9n6oE
+      xfp6eCnDlBf35yNd0GUcpT6HATyMB916o4BvwOr2iwl2DstOKR3t70O5G+1B0OP/
+      +nWlFMUpQqwWthsj8ZZuapNVFmlfNVJMkCaZD0cjk1eJwLIgI7r0cFJIYbWvQ0SO
+      1g==
+      -----END CERTIFICATE-----
+    serverCert: |
+      -----BEGIN CERTIFICATE-----
+      MIID/TCCAeWgAwIBAgIUJDfT/IM4/7V6J73GZHw+EayhREkwDQYJKoZIhvcNAQEL
+      BQAwFjEUMBIGA1UEAwwLRGV4IGdSUEMgQ0EwHhcNMjYwODA0MTQ1NzQzWhcNMjcw
+      ODA0MTQ1NzQzWjAXMRUwEwYDVQQDDAxvZG9vLW1jcC1kZXgwggEiMA0GCSqGSIb3
+      DQEBAQUAA4IBDwAwggEKAoIBAQCzqM4u9SYeeFZEstw9MhzL418OFFjwIESBJlUm
+      uPOPRKiRIHZVZjkOFUAZvA/CRqzx2DOkrfFoU8dEouA0i2djY9YcMdGNakzHXGv0
+      n6ievGYQA5nBTjHK4u17zrTo2baTxZKKRQ1/kVCUsZrumJkl4y1Flq/SDPTwnuB2
+      a114tf6bdChez6zOhYisDYuBHx9Yn/9/pHUr9nbafhkqAxGh/fw+ERdSscOexM8q
+      l8C0DWXwPyhYYU+NyvuUM8C3virGoGDP52WUsmw6O40bycgWMB3b9+HBixVv31Xz
+      mhHBwde32nb3QkatvT/cP/BbMk+LMQILZL184RYYW18rGzeFAgMBAAGjQjBAMB0G
+      A1UdDgQWBBS4QnxERB8dsBx93YZHww4Hh+4ZmzAfBgNVHSMEGDAWgBTCwvV14uC4
+      loE00OKEcEPvvrBHHDANBgkqhkiG9w0BAQsFAAOCAgEAmyck2d5zF/y3VOO8P/Vf
+      q5acSAAEcTfOJgN0LKXFN/i73z2ID3Ow+8//tkHid7IXltIW8+MQzI4yzWXyn5it
+      X3jiv2h4FPdjC5cYJeQ3BD3sw+7GfBr1nCtcrySvcTevzj+muEq0aFtdqfnVE9bZ
+      gujHFbsxuU2s/CXYszRW5HWhQYeSvlzJovsphbbPkWhFI1+bq/hYjv6AAyNFvSYv
+      cqJO/0uLT+1lyTpwARib320n4SUaYFGySAnsZJsrQIfxEiajQWfC3aiQ2lxsJJ61
+      OMvNEKxh50kGHX2iITs52nCbcs342+eqOT9K24CUSAC7r5pQYC9zPi752PXzt8QE
+      KXngTd+aNyW1WCAWqZJk2kW1G/zbjezQMuadT/94m9kyoPR6JTG49pCz11GS9vEs
+      j+D1kEPH0k/mKXr50UpoErrQsvu/m0feEzTTch95axUlzf+sdEpKC6mO9MdF3zBX
+      vgHIscqhWHiAgsoQP6oYrsqE27QZpBE+7crfigYCpc1QodrNJiE6xN8ET2EQS3w5
+      UJXy3J66sKaBXbwzmZdZJKUajYyy9KTlGd+B5yDu4ebrof1W9lscAoqoR0l6GV/c
+      UTR0QtDxD13cKNA9epKCZtnXpcKzTiaOimO+lKyFI4vAWRZIBdBw5Ppb06nLTk3l
+      GBh5zcFTWMnmEyTs0MOMdZY=
+      -----END CERTIFICATE-----
+    serverKey: |
+      -----BEGIN PRIVATE KEY-----
+      MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCzqM4u9SYeeFZE
+      stw9MhzL418OFFjwIESBJlUmuPOPRKiRIHZVZjkOFUAZvA/CRqzx2DOkrfFoU8dE
+      ouA0i2djY9YcMdGNakzHXGv0n6ievGYQA5nBTjHK4u17zrTo2baTxZKKRQ1/kVCU
+      sZrumJkl4y1Flq/SDPTwnuB2a114tf6bdChez6zOhYisDYuBHx9Yn/9/pHUr9nba
+      fhkqAxGh/fw+ERdSscOexM8ql8C0DWXwPyhYYU+NyvuUM8C3virGoGDP52WUsmw6
+      O40bycgWMB3b9+HBixVv31XzmhHBwde32nb3QkatvT/cP/BbMk+LMQILZL184RYY
+      W18rGzeFAgMBAAECggEAQVvt9oNU5MzehYuUN+cdNsd280ZPvLvgcCOj4rxyTvKp
+      aHKo2hSgORFeCn6yNPlFPY5r60MkidHAsqWWb0cvy6asZAFzvMCpQfXLiGj1DRp4
+      /uZwbzSlRKwdvWbLxdI+a6/6ybapXHlfGVkrhhWZ0YC+HYzeVcpE6azC+BHDJYBj
+      3kNfU+r2kqSatDFy6zmVbI6niDk7ekKopnUWSxbOqF7PK08bJyziHLhi4x9hOCXi
+      jvvhsmOixcB4BiIMpNLHwB9vm6bffdPipREz0VSc/W7vwSgIF/MbU6NV49Ra1OSB
+      eMZcZVhBXoDfzdcfKsLWei3YbMUc1tLe5cBmXpCVGQKBgQDjEh4gyEX+rEwUZq36
+      rrFhgQwgPZe0eXReBvaTmOQQcXFXnh7aNfdGkD0WcJqphHvv+kiC9Vc9VoqAYi2u
+      Rnu26LS6QKodcqazDjGjbUzFJfgfcfr7yHYoEMdKsEXUondLOqbKdui7wFhTMg8J
+      QRLe0migg4uJnWXvwAo61/Vs7wKBgQDKjF9EpfQahVFMUci3JajEwWS2claWAtJ3
+      j4sUF7Z37qC0lEhTa+JEbqVGZoN5woH9zOuqR7sNoHbxiTtSK4QSuiGDF9W37Dyj
+      PHJxM+fzu9e7PXkduLWLWldFRnC1BgtHxxkeV4p0U+lxDHiIE+UlCLVIkghNBUIY
+      L7zAF4uKywKBgQDikmRvj4aQDHnJbX8yAHfL88kWrn6ePQZJACevtMH0Sk2vAH6G
+      e4yl4yyhJHCeryw/kvwheA65jI2cdtpf58JwCxiyM+3KfmkphwMur9QHb9B6B/BI
+      pYiIh91jgCnddtMTxI1Cvo2RMeav9OYd9MmQfmCZsUhdYymgpX1Po8cnDwKBgEE2
+      8xGaUT8cv7FP/80gPfejwPaRV9mS7Qr7167Pd7ujxHB/8c2SRdb8vRAuv5Q7kTkT
+      eqln0Q0xJjrckZICWtLgxRt9WB2Q3XE9bCeQq9UpHOu3fkCYkTNeEg1HAdD3MjiZ
+      HThMvVJ5FgeFGWXO6g+Df0LvaebKk55P+Hjs28wDAoGAVMq3FLHb2i//ZT0xgpSC
+      UpCHKKPlsAHomWeG7J5JC8sOhgfTxpuWyIzjoXHB20gTnU/Cb9NCl1qR7SNFGHnu
+      c8jsSjilgheoweo/QOlQAE3cDMZIcrVdZC0CfiPHK2omb5fit66jmih1ryPKS/xO
+      2Hk2Ikv2i8mBdPxyhzbzQ7Q=
+      -----END PRIVATE KEY-----
+    clientCert: |
+      -----BEGIN CERTIFICATE-----
+      MIID+zCCAeOgAwIBAgIUJDfT/IM4/7V6J73GZHw+EayhREowDQYJKoZIhvcNAQEL
+      BQAwFjEUMBIGA1UEAwwLRGV4IGdSUEMgQ0EwHhcNMjYwODA0MTQ1NzQzWhcNMjcw
+      ODA0MTQ1NzQzWjAVMRMwEQYDVQQDDApkZXgtY2xpZW50MIIBIjANBgkqhkiG9w0B
+      AQEFAAOCAQ8AMIIBCgKCAQEAvUpq/+unK+58OW7YXgUblIf3uvN38NUHsl9C0YmS
+      fI0sSdVGxhYffazzadcwaa9Hfmiuphk5i0rtbeR9fDi8GdtBYuKUIIn9M0xRfr1K
+      7FyP8Ecz44hUdqtaTDSnxKmfNFkS4OyxiJuc/hw3wb6i6xShQE2Bbxg8DxJCYtVh
+      V6Bc2rqeeFyVqSAPvOQuuHpi1wObQ4IugUeORPV8wDF6mb2vi1/8A1egFolWZZzf
+      M1mUgP0ylCQqQWzGSjggvpGI40b3NuA1kNAB7T/mBgXPkbUWtra5BqfyQeftRwaO
+      BPKakmnf9alYop3LALH+jwzZipbOUMQvTsps8zajvIBOUwIDAQABo0IwQDAdBgNV
+      HQ4EFgQUmt6Tz399PznkEpO+V8y81XFF5pYwHwYDVR0jBBgwFoAUwsL1deLguJaB
+      NNDihHBD776wRxwwDQYJKoZIhvcNAQELBQADggIBAIAM/rrMLw+/mJcCsb1NhDne
+      jBf8ToVgzfRrOsmrUY6rA8Tl/J38SAgVhNZoqjbBsH04qg2ZfC+bY+Tm1OWogFSi
+      5X34jw6cWI9Uh94/Wk3iSvpRRYWXTrsAEWsmYvg7KreeZ0yXhhjXxjZtu8t+dPkf
+      123/cmy1ssdtV5Vicfiir6aZjrnEDKGT4r2rPIRcR/zICkNVRas4OjEtKHxwb9cl
+      vYRaRn4Vq7Rayd+WE3gr7Ptn3Czwyl1LrUZHlHPhw9q73gDEjCqFFFk4j1aDg1op
+      hjmBDEw75R5isOWVZiNyHBhGpGvVKThVTiq6eCuoo7GefrcnY+OJgaziwqZwgihQ
+      czrDzaMieuJTILrZGlyXsLoAD1bNK7UFxlHFiTmJVTuY2LgH96H2f68/2Vg9CgEA
+      buAJy6VMv95HUdAI6HwBJFjSUXA+dlxUYKI7+gosVYK/ZB5DhTMf236wox50S/nl
+      +G2G1yBwJ2/t+BbwvMEU19qOT3M5MkgGM5u5HvguMljCCSNEz2a6QZ6B5thsrqrP
+      +Pcjk1f/bN5qoDbXr4UD/o4Q/ne/3Dm8Ydl3tygj2l8KPw/uiLHDyG4yNZBeVPCK
+      jL2SUqG0SOpssy1jR6MFHbI9P5qvvcv2UGEj896XKjgrhkSzQFdseVXGW7aRootI
+      kD3+0dIFVzT+mQzK4Oln
+      -----END CERTIFICATE-----
+    clientKey: |
+      -----BEGIN PRIVATE KEY-----
+      MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC9Smr/66cr7nw5
+      btheBRuUh/e683fw1QeyX0LRiZJ8jSxJ1UbGFh99rPNp1zBpr0d+aK6mGTmLSu1t
+      5H18OLwZ20Fi4pQgif0zTFF+vUrsXI/wRzPjiFR2q1pMNKfEqZ80WRLg7LGIm5z+
+      HDfBvqLrFKFATYFvGDwPEkJi1WFXoFzaup54XJWpIA+85C64emLXA5tDgi6BR45E
+      9XzAMXqZva+LX/wDV6AWiVZlnN8zWZSA/TKUJCpBbMZKOCC+kYjjRvc24DWQ0AHt
+      P+YGBc+RtRa2trkGp/JB5+1HBo4E8pqSad/1qViincsAsf6PDNmKls5QxC9Oymzz
+      NqO8gE5TAgMBAAECggEAWHee4YQcCeK4iUkec3a0qKsRY30lqdeOdNWjz3WaEn8S
+      W2GD5dFyH1UFIIrTlBk480Humi+A3vKCXBFlenizpOv9t78IltqXDXIWRoMmsKgk
+      F5rXi/hr7VhxZ9tWK4pRH3Cf66KD6MI90d+TSYgU8YSfRoPSwf7UFwEkKLfsejxp
+      QKsOiKKM2brbpUjLPXnY5zTp5X9OnLuTiiXPHhfmdqFfRgUeBjR0KEgQkpE7wCBH
+      LFYlF6A7vBPAULJVe7io/lnj3ASBiYJ9Q+J2THKK4v7+Nvb+KiRInhRYgBrvUuvO
+      flLSZ9sCZDZcJVWhRKkadjwOovcvOf9rSCSPIsTiXQKBgQDiWLrzkmkPm27KeU8y
+      z6In4fznYrsZRiG9v5OsUoVC2H6OUL96rQWy1bztKhC3cHsOcPy0AwAK1Whyhc4y
+      XjRQfxzcynPJCDEwa5oiKYHa9F8t4ME7WfgI5JT4axffuT/SA5j26Z/y3vQ6RlYd
+      8/f0IWBDucNSDhM9zp/QOrxh7QKBgQDWFuWzr15ydLcOKKc0Q9ZEZrM493jUphch
+      qqJ/lBtMeVceMRmNmYwkHfCU0ootDqEy6IMZwEPEYm4xtG+yVzxuIxLctp0yRBwp
+      DHikpBitqeCxDQtkUL3hNma/WQONHrgMtjRX0ELl75XjQcjjqqMI4RuWiZC2IK/I
+      92YmvKJpPwKBgG39nkOUpzctWgZMMt9HJM5qtAIg6Tib6vORMAqyQw27tKwlsxbD
+      E5zW3qsFIQBzSWk4IKS9PH0HPW1BdnTlcFiZnIXyX5eWQoj8EPd+4hprXAEoUd4s
+      lyqDIZ0iNYTDOa8tjlyWJOLZ0yaqXVjK4Hgi6+udTrwGGPWU/fYrRLX1AoGBANLU
+      S7LO4ai/TcHwwPBUWb6UkKxp8KEhSyhJXKtclCGUYPmHis2KR5sNrO0yBQboIFD8
+      7pY+Y74S3MewFEtBY25mtd2LLHTi5AR8lpY0T2U+JNrWqMBKTyNpKngHVdr0RHWo
+      PRW5Lxg2/5mEICwrz1AgNsXhhRQGTnYPRJajLyGLAoGBAKkK0/4zPq6WTxHxae1c
+      xo4wRTyhcD3v89ojEC5JCxqezf9AveM0zlZt5P7BFyoWxeYaKfNxMUp1DOiy1L+Q
+      w9FzKC5w2lFEglbEJkwIyUDG+XPkgVb2ockwtgyeaQvEOZIMHGosBdHoiuZ3pRnw
+      2ZdzTyVcJX+pQ3
+      -----END PRIVATE KEY-----
+
+valkey:
+  enabled: true
+  auth:
+    enabled: false
+  architecture: standalone
+  primary:
+    persistence:
+      enabled: true
+      size: 100Mi
+
+ingress:
+  enabled: false  # We'll use Envoy instead
+
+mcpoauth:
+  enabled: true
+  image:
+    repository: host.docker.internal:5001/odoo-mcp-mcpoauth
+    tag: latest
+    pullPolicy: Always
+  env:
+    BROKER_PORT: "8090"
+    BROKER_PUBLIC_URL: "http://localhost:8088"
+    DEX_URL: "http://odoo-mcp-dex:5556/dex"
+    MCP_PUBLIC_URL: "http://odoo-mcp-mcp:8080"
+    DEX_GRPC_ADDR: "odoo-mcp-dex:5557"
+
+envoy:
+  enabled: true
+  image:
+    repository: envoyproxy/envoy
+    tag: v1.32-latest
+    pullPolicy: IfNotPresent
+
+secrets:
+  dexClientSecret: ""  # auto-generated
+  dexDbPassword: "25CRNRR8IDXZBogewI1Qf7JDoewjoaVhHYP9bQdvpWaunN74dhJaySWRQO8lrBA4"

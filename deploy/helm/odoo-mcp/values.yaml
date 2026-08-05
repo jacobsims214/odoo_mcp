@@ -1,0 +1,326 @@
+# ── Global Settings ────────────────────────────────────────────────────────────
+global:
+  # Domain used for Ingress and Dex callback URLs
+  domain: "mcp.simstech.cloud"
+  # Global image registry override (e.g. "registry.internal.company")
+  imageRegistry: ""
+  # Global image pull secrets
+  imagePullSecrets: []
+
+# ── MCP Server ──────────────────────────────────────────────────────────────────
+mcp:
+  image:
+    repository: odoo-mcp
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  replicaCount: 2
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+  # Environment variables — mirrors config.go
+  env:
+    # ── Odoo Connection ───────────────────────────────────────────────────
+    ODOO_API_KEY: ""
+    #   API key for the service account. Required when ODOO_MCP_AUTH_MODE is "service".
+    ODOO_TIMEOUT: "30s"
+    #   How long to wait for Odoo API responses. Go duration string.
+
+    # ── Transport ─────────────────────────────────────────────────────────
+    ODOO_MCP_TRANSPORT: "http"
+    #   "stdio" | "http" | "sse" — use "http" for networked deployments.
+    ODOO_MCP_ADDR: ":8080"
+    #   Listen address for HTTP and SSE transports.
+
+    # ── Authentication ────────────────────────────────────────────────────
+    ODOO_MCP_AUTH_MODE: "service"
+    #   "service" — single API key for all calls.
+    #   "per-session" — each client provides its own API key.
+
+    # ── Guardrails (Security & Performance) ────────────────────────────────
+    ODOO_BLOCKED_MODELS: ""
+    #   Comma-separated additional blocked models (merged with defaults).
+    ODOO_READ_ONLY: "false"
+    #   "true" rejects all mutating operations.
+    ODOO_RATE_LIMIT_RPS: "10"
+    #   Max requests per second per session. Must be >= 1.
+
+    # ── Logging & Audit ───────────────────────────────────────────────────
+    ODOO_LOG_LEVEL: "info"
+    #   "debug" | "info" | "warn" | "error"
+    ODOO_AUDIT_LOG: "true"
+    #   "false" disables structured audit logging.
+
+    # ── Session Management ────────────────────────────────────────────────
+    STATELESS_SESSIONS: "false"
+    #   "true" disables per-session Odoo clients.
+
+    # ── Public URLs ───────────────────────────────────────────────────────
+    ODOO_MCP_PUBLIC_URL: "http://localhost:8088/mcp"
+    #   Public-facing URL for the MCP server (through Envoy/Ingress).
+    DEX_PUBLIC_URL: "http://localhost:8088/dex"
+    #   Public-facing URL for the Dex OIDC provider (through Envoy/Ingress).
+    DEX_INTERNAL_URL: ""
+    #   Internal Dex URL for JWKS fetching (through Envoy).
+    #   Defaults to dex.issuerURL if not set.
+
+    # ── Database (PostgreSQL via CloudNative PG) ──────────────────────────
+    DATABASE_URL: "postgres://postgres@cnpg-rw:5432/mcp?sslmode=disable"
+    #   Connection string for the MCP server's PostgreSQL database.
+
+  # Additional environment variables (map of key: value)
+  extraEnv: {}
+  #  MY_VAR: "my-value"
+
+  # Environment variables from secrets
+  extraEnvFrom: []
+  # - secretRef:
+  #     name: my-secret
+
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+# ── MCP OAuth Broker ─────────────────────────────────────────────────────────────
+mcpoauth:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: odoo-mcp-mcpoauth
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  # Broker HTTP port
+  port: 8090
+
+  # Environment variables
+  env:
+    BROKER_PORT: "8090"
+    BROKER_PUBLIC_URL: "http://localhost:8088"
+    DEX_URL: "http://odoo-mcp-dex:5556/dex"
+    MCP_PUBLIC_URL: "http://odoo-mcp-mcp:8080"
+    DEX_GRPC_ADDR: "odoo-mcp-dex:5557"
+
+  # Dex gRPC TLS secret mount — no longer needed (Dex gRPC runs without TLS)
+  dexGrpcTls:
+    secretName: "dex-grpc-tls"
+    mountPath: "/etc/dex-grpc-tls"
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 32Mi
+
+# ── Envoy Proxy ──────────────────────────────────────────────────────────────────
+envoy:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: envoyproxy/envoy
+    tag: v1.32-latest
+    pullPolicy: IfNotPresent
+
+  # Envoy listener port
+  port: 8088
+  adminPort: 9901
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# ── Dex (OIDC Provider) ────────────────────────────────────────────────────────
+dex:
+  enabled: true
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/dexidp/dex
+    tag: v2.42.0
+    pullPolicy: IfNotPresent
+
+  # Dex OIDC issuer URL
+  issuerURL: "https://mcp.simstech.cloud/dex"
+  # Dex OIDC client ID
+  clientID: "odoo-mcp"
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 5556
+    targetPort: 5556
+
+  # Additional static OIDC clients beyond the default "odoo-mcp" client
+  extraStaticClients: []
+  # - id: another-client
+  #   name: Another Client
+  #   secretEnv: ANOTHER_CLIENT_SECRET
+  #   redirectURIs:
+  #     - "https://example.com/callback"
+
+  # Persistent volume for SQLite database — no longer needed when using PostgreSQL storage
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    existingClaim: ""
+
+  # gRPC TLS configuration for Dex gRPC API
+  grpcTls:
+    # Self-signed mTLS certificates for gRPC endpoint
+    # If empty, the chart will look for an existing secret named <release>-dex-grpc-tls
+    # Created externally via: kubectl create secret generic -n <ns> <release>-dex-grpc-tls ...
+    caCert: ""
+    serverCert: ""
+    serverKey: ""
+    clientCert: ""
+    clientKey: ""
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 64Mi
+
+# ── Secrets (generated as Kubernetes Secret) ────────────────────────────────────
+secrets:
+  # Shared secret between Dex and the MCP server for OIDC
+  dexClientSecret: ""
+  # PostgreSQL password for Dex storage
+  # For the amp-postgres CNPG cluster, the password is stored in the
+  # amp-postgres-app secret in the amp namespace. Retrieve with:
+  #   kubectl get secret -n amp amp-postgres-app -o jsonpath='{.data.password}' | base64 -d
+  dexDbPassword: ""
+
+# ── Valkey (via Bitnami chart) ───────────────────────────────────────────────
+valkey:
+  enabled: true
+  # All values below are passed through to the Bitnami valkey sub-chart.
+  # See https://github.com/bitnami/charts/tree/main/bitnami/valkey for full documentation.
+
+  # Architecture: standalone or replication
+  architecture: standalone
+
+  # Authentication
+  # IMPORTANT: Auth is disabled by default because the MCP Valkey client
+  # (internal/cache/client.go) does not yet support VALKEY_PASSWORD.
+  # With auth enabled, every cache command fails NOAUTH — caching is
+  # silently dead on a default install (the app logs a warning and
+  # continues, so nothing crashes, but the feature is inert).
+  #
+  # To re-enable auth once the MCP server supports VALKEY_PASSWORD:
+  #   1. Set valkey.auth.enabled: true
+  #   2. The Bitnami sub-chart auto-generates a Secret named
+  #      <release>-valkey with key valkey-password
+  #   3. Wire VALKEY_PASSWORD from that Secret into the MCP deployment
+  #      (requires an app change — out of chart scope)
+  auth:
+    enabled: false
+    sentinel: false
+    # password: "changeme"
+
+  # Primary settings
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+  # Replica settings (used when architecture=replication)
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 8Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+# ── Ingress ────────────────────────────────────────────────────────────────────
+ingress:
+  enabled: true
+  # Ingress controller class
+  className: ""
+  # Primary hostname
+  hostname: "mcp.simstech.cloud"
+  # Additional hosts
+  hosts: []
+  # - host: "api.mcp.example.com"
+  #   paths:
+  #     - path: /
+  #       pathType: Prefix
+  tls:
+    enabled: true
+    # TLS secret name (if empty, cert-manager or default issuer is assumed)
+    secretName: "odoo-mcp-tls"
+    hosts: []
+    # - "mcp.simstech.cloud"
+  # Ingress annotations
+  annotations:
+    kubernetes.io/ingress.class: nginx
+
+# ── Pod-level Settings ─────────────────────────────────────────────────────────
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65534  # nobody
+  runAsGroup: 65534
+  fsGroup: 65534
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# ── Scheduling ──────────────────────────────────────────────────────────────────
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# ── Service Account ────────────────────────────────────────────────────────────
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  automount: true
+
+# ── Pod Disruption Budget ──────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# ── Image Pull Secrets ─────────────────────────────────────────────────────────
+imagePullSecrets: []
+# - name: regcred

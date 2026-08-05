@@ -1,0 +1,63 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.hostname }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.hostname }}
+      http:
+        paths:
+          - path: /mcp
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcp
+                port:
+                  number: {{ .Values.mcp.service.port }}
+          - path: /.well-known
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcp
+                port:
+                  number: {{ .Values.mcp.service.port }}
+          - path: /register-key
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcp
+                port:
+                  number: {{ .Values.mcp.service.port }}
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcp
+                port:
+                  number: {{ .Values.mcp.service.port }}
+          {{- if .Values.dex.enabled }}
+          - path: /dex
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-dex
+                port:
+                  number: {{ .Values.dex.service.port }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,38 @@
+Thank you for installing {{ .Chart.Name }} {{ .Chart.Version }}.
+
+The Odoo MCP Server exposes Odoo ERP models through the Model Context Protocol (MCP),
+making Odoo data accessible to AI agents and MCP-compatible clients.
+
+**Components**
+
+  1. MCP Server ({{ .Values.mcp.replicaCount }} replicas) — HTTP endpoint on port {{ .Values.mcp.service.port }}
+  2. Dex ({{ .Values.dex.replicaCount }} replica(s)) — OIDC provider with mockCallback connector on port {{ .Values.dex.service.port }}
+  3. MCP OAuth Broker ({{ .Values.mcpoauth.replicaCount }} replica(s)) — OAuth authorization/registration on port {{ .Values.mcpoauth.port }}
+  4. Envoy Proxy ({{ .Values.envoy.replicaCount }} replica(s)) — Reverse proxy on port {{ .Values.envoy.port }}
+  5. Valkey — Session/data caching (enabled: {{ .Values.valkey.enabled }})
+
+**Ingress**
+
+  Hostname: {{ .Values.ingress.hostname }}
+  {{- if .Values.ingress.tls.enabled }}
+  TLS: enabled
+  {{- else }}
+  TLS: disabled
+  {{- end }}
+
+**Getting Started**
+
+  1. Ensure `mcp.env.ODOO_API_KEY` is set in your values or overrides.
+  2. Set `secrets.dexClientSecret` for the Dex OIDC client.
+  3. Verify the deployment:
+
+     kubectl get pods -n {{ .Release.Namespace }}
+
+  5. Check the MCP server health:
+
+     curl http://{{ .Values.ingress.hostname }}/health
+
+**Configuration Reference**
+
+  All configurable parameters are documented in values.yaml.
+  Use `helm show values odoo-mcp` to view the full reference.

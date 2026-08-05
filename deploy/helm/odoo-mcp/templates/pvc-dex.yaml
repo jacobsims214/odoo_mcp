@@ -1,0 +1,18 @@
+{{- if and .Values.dex.enabled .Values.dex.persistence.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-dex
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dex
+spec:
+  accessModes:
+    - {{ .Values.dex.persistence.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.dex.persistence.size }}
+  {{- if .Values.dex.persistence.storageClass }}
+  storageClassName: {{ .Values.dex.persistence.storageClass }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,19 @@
+{{- if .Values.mcpoauth.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-mcpoauth
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcpoauth
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.mcpoauth.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "odoo-mcp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mcpoauth
+{{- end }}

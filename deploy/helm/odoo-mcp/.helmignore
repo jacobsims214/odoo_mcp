@@ -1,0 +1,29 @@
+# Patterns to ignore when packaging Helm charts.
+# Documented at https://helm.sh/docs/chart_template_guide/helmignore_file/
+
+# OS/Dotfile clutter
+.DS_Store
+*.swp
+*.swo
+*~
+.bak
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# CI
+.gitlab-ci.yml
+.helmignore
+
+# Editor and IDE
+.idea/
+.vscode/
+*.tmproj
+*.sublime-project
+
+# Temp files
+tmp/
+temp/
+*.tmp

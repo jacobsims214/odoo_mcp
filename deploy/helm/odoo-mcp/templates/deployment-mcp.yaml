@@ -1,0 +1,180 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-mcp
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+spec:
+  replicas: {{ .Values.mcp.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "odoo-mcp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mcp
+  template:
+    metadata:
+      labels:
+        {{- include "odoo-mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/component: mcp
+    spec:
+      serviceAccountName: {{ include "odoo-mcp.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | default "{}" | nindent 8 }}
+      containers:
+        - name: odoo-mcp
+          securityContext:
+            {{- toYaml .Values.securityContext | default "{}" | nindent 12 }}
+          image: "{{ .Values.mcp.image.repository }}:{{ .Values.mcp.image.tag }}"
+          imagePullPolicy: {{ .Values.mcp.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.mcp.service.port }}
+              protocol: TCP
+          env:
+            - name: ODOO_MCP_TRANSPORT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_MCP_TRANSPORT
+            - name: ODOO_MCP_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_MCP_ADDR
+            - name: ODOO_MCP_AUTH_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_MCP_AUTH_MODE
+            - name: ODOO_READ_ONLY
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_READ_ONLY
+            - name: ODOO_RATE_LIMIT_RPS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_RATE_LIMIT_RPS
+            - name: ODOO_BLOCKED_MODELS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_BLOCKED_MODELS
+            - name: ODOO_LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_LOG_LEVEL
+            - name: ODOO_AUDIT_LOG
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_AUDIT_LOG
+            - name: ODOO_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_TIMEOUT
+            - name: VALKEY_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: VALKEY_ADDR
+            - name: DEX_ISSUER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: DEX_ISSUER_URL
+            - name: DEX_INTERNAL_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: DEX_INTERNAL_URL
+            - name: STATELESS_SESSIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: STATELESS_SESSIONS
+            - name: ODOO_MCP_PUBLIC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: ODOO_MCP_PUBLIC_URL
+            - name: DEX_PUBLIC_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: DEX_PUBLIC_URL
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-config
+                  key: DATABASE_URL
+            - name: ODOO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  key: ODOO_API_KEY
+                  optional: true
+            - name: DEX_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  key: DEX_CLIENT_SECRET
+          {{- range $key, $value := .Values.mcp.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+          {{- end }}
+          {{- with .Values.mcp.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+          resources:
+            {{- toYaml .Values.mcp.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-mcp
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.mcp.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "odoo-mcp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp

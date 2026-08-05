@@ -1,0 +1,221 @@
+{{- if .Values.envoy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-envoy
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: envoy
+data:
+  envoy.yaml: |
+    admin:
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: {{ .Values.envoy.adminPort }}
+
+    static_resources:
+      listeners:
+      - name: mcp_listener
+        address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: {{ .Values.envoy.port }}
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: mcp
+              codec_type: AUTO
+              route_config:
+                name: local_route
+                virtual_hosts:
+                - name: mcp
+                  domains: ["*"]
+                  routes:
+                  {{- if .Values.mcpoauth.enabled }}
+                  - match:
+                      prefix: "/register"
+                    route:
+                      cluster: mcpoauth_service
+                  - match:
+                      prefix: "/authorize"
+                    route:
+                      cluster: mcpoauth_service
+                  - match:
+                      prefix: "/.well-known/oauth-authorization-server"
+                    route:
+                      cluster: mcpoauth_service
+                  - match:
+                      prefix: "/.well-known/oauth-protected-resource"
+                    route:
+                      cluster: mcpoauth_service
+                  {{- end }}
+                  - match:
+                      prefix: "/mcp"
+                    route:
+                      cluster: mcp_service
+                  - match:
+                      prefix: "/.well-known"
+                    route:
+                      cluster: mcp_service
+                  - match:
+                      prefix: "/register-key"
+                    route:
+                      cluster: mcp_service
+                  - match:
+                      prefix: "/health"
+                    route:
+                      cluster: mcp_service
+                  - match:
+                      prefix: "/admin"
+                    route:
+                      cluster: mcp_service
+                  {{- if .Values.dex.enabled }}
+                  - match:
+                      prefix: "/dex"
+                    route:
+                      cluster: dex_service
+                  {{- end }}
+              http_filters:
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      clusters:
+      - name: mcp_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: mcp_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: {{ include "odoo-mcp.fullname" . }}-mcp
+                    port_value: {{ .Values.mcp.service.port }}
+      {{- if .Values.mcpoauth.enabled }}
+      - name: mcpoauth_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: mcpoauth_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: {{ include "odoo-mcp.fullname" . }}-mcpoauth
+                    port_value: {{ .Values.mcpoauth.port }}
+      {{- end }}
+      {{- if .Values.dex.enabled }}
+      - name: dex_service
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: dex_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: {{ include "odoo-mcp.fullname" . }}-dex
+                    port_value: {{ .Values.dex.service.port }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-envoy
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: envoy
+spec:
+  replicas: {{ .Values.envoy.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "odoo-mcp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: envoy
+  template:
+    metadata:
+      labels:
+        {{- include "odoo-mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/component: envoy
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | default "{}" | nindent 8 }}
+      containers:
+        - name: envoy
+          securityContext:
+            {{- toYaml .Values.securityContext | default "{}" | nindent 12 }}
+          image: "{{ .Values.envoy.image.repository }}:{{ .Values.envoy.image.tag }}"
+          imagePullPolicy: {{ .Values.envoy.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.envoy.port }}
+              protocol: TCP
+            - name: admin
+              containerPort: {{ .Values.envoy.adminPort }}
+              protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/envoy
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+          resources:
+            {{- toYaml .Values.envoy.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "odoo-mcp.fullname" . }}-envoy
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-envoy
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: envoy
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.envoy.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.envoy.adminPort }}
+      targetPort: admin
+      protocol: TCP
+      name: admin
+  selector:
+    {{- include "odoo-mcp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: envoy
+{{- end }}

@@ -1,0 +1,89 @@
+{{- if .Values.dex.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-dex
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dex
+spec:
+  replicas: {{ .Values.dex.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "odoo-mcp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: dex
+  template:
+    metadata:
+      labels:
+        {{- include "odoo-mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/component: dex
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | default "{}" | nindent 8 }}
+      containers:
+        - name: dex
+          securityContext:
+            {{- toYaml .Values.securityContext | default "{}" | nindent 12 }}
+          image: "{{ .Values.dex.image.repository }}:{{ .Values.dex.image.tag }}"
+          args: ["serve", "/etc/dex/config.yaml"]
+          imagePullPolicy: {{ .Values.dex.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.dex.service.port }}
+              protocol: TCP
+            - name: grpc
+              containerPort: 5557
+              protocol: TCP
+            - name: telemetry
+              containerPort: 5558
+              protocol: TCP
+          env:
+            - name: DEX_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  key: DEX_CLIENT_SECRET
+            - name: DEX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  key: DEX_DB_PASSWORD
+          volumeMounts:
+            - name: config
+              mountPath: /etc/dex
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /dex/healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /dex/healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 2
+          resources:
+            {{- toYaml .Values.dex.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "odoo-mcp.fullname" . }}-dex-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
