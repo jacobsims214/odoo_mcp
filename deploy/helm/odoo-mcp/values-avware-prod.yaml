@@ -137,6 +137,7 @@ ingress:
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
     alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:445567109615:certificate/c072b2a1-5295-4209-86f9-02a6ff45c511"
+    kubernetes.io/ingress.class: alb
 
 # ── Valkey (Session Cache) ─────────────────────────────────────────────────────
 valkey:
