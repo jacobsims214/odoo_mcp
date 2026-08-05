@@ -58,4 +58,8 @@ data:
       name: Admin UI
       public: true
       redirectURIs:
+      {{- if .Values.ingress.enabled }}
+      - https://{{ .Values.ingress.hostname }}/admin
+      {{- else }}
       - http://localhost:8088/admin
+      {{- end }}

@@ -31,7 +31,7 @@ staticClients:
   name: Admin UI
   public: true
   redirectURIs:
-  - http://localhost:8088/admin
+  - https://odoo-mcp.cloud.avware.io/admin
 - id: claude-desktop
   name: Claude Desktop
   public: true
