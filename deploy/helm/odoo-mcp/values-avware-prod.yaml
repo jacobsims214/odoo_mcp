@@ -6,7 +6,7 @@
 
 # ── Global ──────────────────────────────────────────────────────────────────────
 global:
-  domain: odoo-mcp.cloud.avware.io
+  domain: api.cloud.avware.io
 
 # ── MCP Server ──────────────────────────────────────────────────────────────────
 mcp:
@@ -23,8 +23,8 @@ mcp:
     STATELESS_SESSIONS: "true"
 
     # ── URLs ──────────────────────────────────────────────────────────────
-    ODOO_MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
-    DEX_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/dex"
+    ODOO_MCP_PUBLIC_URL: "https://api.cloud.avware.io/mcp"
+    DEX_PUBLIC_URL: "https://api.cloud.avware.io/dex"
     DEX_INTERNAL_URL: "http://odoo-mcp-dex:5556/dex"
 
     # ── Logging ───────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ mcp:
 dex:
   replicaCount: 2
 
-  issuerURL: "https://odoo-mcp.cloud.avware.io/dex"
+  issuerURL: "https://api.cloud.avware.io/dex"
 
   # Dex uses existing CNPG database — no PVC needed
   persistence:
@@ -74,9 +74,9 @@ mcpoauth:
     pullPolicy: Always
 
   env:
-    BROKER_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io"
+    BROKER_PUBLIC_URL: "https://api.cloud.avware.io"
     DEX_URL: "http://odoo-mcp-dex:5556/dex"
-    MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
+    MCP_PUBLIC_URL: "https://api.cloud.avware.io/mcp"
     # Dex gRPC — no TLS for internal cluster communication
     DEX_GRPC_ADDR: "odoo-mcp-dex:5557"
 
@@ -96,7 +96,7 @@ envoy:
 # ── Ingress (AWS ALB) ──────────────────────────────────────────────────────────
 ingress:
   enabled: true
-  className: alb
+  className: "alb"
   hostname: odoo-mcp.cloud.avware.io
 
   # TLS is terminated at the ALB via certificate ARN annotation
@@ -105,16 +105,14 @@ ingress:
     enabled: false
 
   annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    alb.ingress.kubernetes.io/ssl-redirect: "443"
-    # Set the certificate ARN at deploy time via --set or External Secrets
-    alb.ingress.kubernetes.io/certificate-arn: ""
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/subnets: subnet-06e6f97647d2b3469,subnet-0b5e29dfa7c870ced,subnet-0b4946ca1756defa9
+    alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/healthcheck-path: /health
-    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
-    alb.ingress.kubernetes.io/success-codes: "200"
-    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=3600
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:445567109615:certificate/c072b2a1-5295-4209-86f9-02a6ff45c511"
 
 # ── Valkey (Session Cache) ─────────────────────────────────────────────────────
 valkey:
