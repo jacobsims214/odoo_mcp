@@ -127,7 +127,7 @@ envoy:
 ingress:
   enabled: true
   className: "alb"
-  hostname: api.cloud.avware.io
+  hostname: odoo-mcp.cloud.avware.io
 
   # TLS is terminated at the ALB via certificate ARN annotation
   # Do not use the standard K8s TLS block — ALB manages TLS itself
