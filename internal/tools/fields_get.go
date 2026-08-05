@@ -2,73 +2,71 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/simstech/odoo-mcp/internal/audit"
 )
 
+// FieldsGetInput is the typed input for odoo_fields_get.
+type FieldsGetInput struct {
+	Model      string `json:"model" jsonschema:"Odoo model technical name, e.g. 'res.partner', 'sale.order'"`
+	Attributes string `json:"attributes,omitempty" jsonschema:"JSON array of field attributes to return. Default: [\"string\",\"type\",\"required\",\"readonly\",\"relation\",\"help\",\"selection\"]"`
+}
+
 // fieldsGetTool returns the fields_get tool definition.
-func fieldsGetTool() mcp.Tool {
-	return mcp.NewTool("odoo_fields_get",
-		mcp.WithDescription(`Introspect an Odoo model's fields — names, types, labels, relations, and constraints. Use this before operating on an unfamiliar model to understand its structure.`),
-		mcp.WithString("model",
-			mcp.Required(),
-			mcp.Description("Odoo model technical name, e.g. 'res.partner', 'sale.order'"),
-		),
-		mcp.WithString("attributes",
-			mcp.Description(`JSON array of field attributes to return. Example: ["string","type","required","readonly","relation","help","selection"].
-If omitted, returns all attributes.`),
-			mcp.DefaultString(`["string","type","required","readonly","relation","help","selection"]`),
-		),
-	)
+func fieldsGetTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "odoo_fields_get",
+		Description: `Introspect an Odoo model's fields — names, types, labels, relations, and constraints. Use this before operating on an unfamiliar model to understand its structure.`,
+	}
 }
 
 // makeFieldsGetHandler returns the handler for fields_get.
-func makeFieldsGetHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func makeFieldsGetHandler(deps Deps) func(context.Context, *mcp.CallToolRequest, FieldsGetInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, input FieldsGetInput) (*mcp.CallToolResult, any, error) {
 		start := time.Now()
-		sessID := sessionID(ctx, deps)
+		sessID := sessionID(req.Session)
 
 		// 1. Parse inputs
-		model, err := request.RequireString("model")
-		if err != nil {
-			return toolError(err.Error()), nil
+		attributesStr := input.Attributes
+		if attributesStr == "" {
+			attributesStr = `["string","type","required","readonly","relation","help","selection"]`
 		}
-
-		attributesStr := request.GetString("attributes", `["string","type","required","readonly","relation","help","selection"]`)
 		attributes, err := parseStringArray(attributesStr)
 		if err != nil {
-			return toolErrorf("invalid attributes: %s", err), nil
+			return toolErrorf("invalid attributes: %s", err), nil, nil
 		}
 
 		// 2. Guardrails
-		if err := deps.Guardrails.CheckRate(sessID); err != nil {
-			return toolError(err.Error()), nil
+		if err := deps.Guardrails.CheckRate(ctx, sessID); err != nil {
+			return toolError(err.Error()), nil, nil
 		}
-		if err := deps.Guardrails.CheckModel(model); err != nil {
-			return toolError(err.Error()), nil
+		if err := deps.Guardrails.CheckModel(input.Model); err != nil {
+			return toolError(err.Error()), nil, nil
 		}
 
 		// 3. Call Odoo
 		client := odooClient(ctx, deps)
-		fieldsResult, err := client.FieldsGet(ctx, model, attributes)
+		fieldsResult, err := client.FieldsGet(ctx, input.Model, attributes)
 
 		// 4. Audit
 		auditResult(ctx, deps, audit.Entry{
-			SessionID: sessID, Tool: "odoo_fields_get", Model: model, Method: "fields_get",
+			SessionID: sessID, Tool: "odoo_fields_get", Model: input.Model, Method: "fields_get",
 		}, start, err)
 
 		if err != nil {
-			return toolErrorf("fields_get failed: %s", err), nil
+			return toolErrorf("fields_get failed: %s", err), nil, nil
 		}
 
 		// 5. Return JSON result
-		result, err := mcp.NewToolResultJSON(fieldsResult)
+		jsonBytes, err := json.Marshal(fieldsResult)
 		if err != nil {
-			return toolErrorf("encode result: %s", err), nil
+			return toolErrorf("encode result: %s", err), nil, nil
 		}
-		return result, nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: string(jsonBytes)}},
+		}, nil, nil
 	}
 }

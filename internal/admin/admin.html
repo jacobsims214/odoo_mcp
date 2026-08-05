@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Odoo MCP Admin</title>
+<style>
+/* Reset & base */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: #f5f7fa; color: #1a1a2e; min-height: 100vh; }
+h1, h2, h3 { margin-bottom: 0.75rem; }
+h1 { font-size: 1.5rem; color: #0a0a23; }
+h2 { font-size: 1.25rem; color: #2d3748; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; margin-top: 2rem; }
+
+/* Layout */
+.container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+.card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1.5rem; }
+
+/* Login page */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.login-card { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); padding: 3rem; text-align: center; max-width: 420px; width: 100%; }
+.login-card h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+.login-card p { color: #718096; margin-bottom: 2rem; }
+.btn-dex { background: #1a73e8; color: #fff; border: none; padding: 0.875rem 2rem; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
+.btn-dex:hover { background: #1557b0; }
+.btn-dex:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Buttons */
+.btn { padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+.btn-primary { background: #1a73e8; color: #fff; }
+.btn-primary:hover { background: #1557b0; }
+.btn-danger { background: #e53e3e; color: #fff; }
+.btn-danger:hover { background: #c53030; }
+.btn-secondary { background: #e2e8f0; color: #4a5568; }
+.btn-secondary:hover { background: #cbd5e0; }
+
+/* Header */
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem; }
+.header-actions { display: flex; align-items: center; gap: 1rem; }
+.user-info { font-size: 0.875rem; color: #718096; }
+.btn-logout { background: none; border: 1px solid #e2e8f0; color: #e53e3e; padding: 0.375rem 0.75rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; transition: all 0.2s; }
+.btn-logout:hover { background: #fff5f5; border-color: #e53e3e; }
+
+/* Table */
+.table-wrapper { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+thead { background: #f7fafc; }
+th { text-align: left; padding: 0.75rem 1rem; font-weight: 600; color: #4a5568; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+td { padding: 0.75rem 1rem; border-bottom: 1px solid #e2e8f0; color: #2d3748; }
+tr:hover { background: #f7fafc; }
+td .btn-danger { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 3rem 1rem; color: #a0aec0; }
+.empty-state p { font-size: 1rem; margin-bottom: 0.5rem; }
+
+/* Form */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.form-group { margin-bottom: 0.75rem; }
+.form-group label { display: block; font-size: 0.8125rem; font-weight: 600; color: #4a5568; margin-bottom: 0.375rem; }
+.form-group input { width: 100%; padding: 0.625rem 0.75rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.875rem; transition: border-color 0.2s; }
+.form-group input:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.15); }
+.form-actions { margin-top: 1rem; display: flex; gap: 0.75rem; }
+
+/* Alert / notification */
+.alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.875rem; display: none; }
+.alert-error { background: #fff5f5; color: #c53030; border: 1px solid #fed7d7; display: block; }
+.alert-success { background: #f0fff4; color: #276749; border: 1px solid #c6f6d5; display: block; }
+.alert-info { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; display: block; }
+
+/* Loading */
+.loading { text-align: center; padding: 2rem; color: #718096; }
+.loading::after { content: "..."; animation: dots 1.5s steps(4, end) infinite; }
+@keyframes dots { 0%, 20% { content: ""; } 40% { content: "."; } 60% { content: ".."; } 80%, 100% { content: "..."; } }
+
+/* Toast */
+.toast { position: fixed; bottom: 1.5rem; right: 1.5rem; padding: 0.75rem 1.25rem; border-radius: 8px; color: #fff; font-size: 0.875rem; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; opacity: 0; transform: translateY(1rem); transition: all 0.3s ease; pointer-events: none; }
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast-success { background: #48bb78; }
+.toast-error { background: #e53e3e; }
+
+/* Refresh button */
+.refresh-btn { background: none; border: 1px solid #e2e8f0; color: #4a5568; padding: 0.375rem 0.75rem; border-radius: 6px; cursor: pointer; font-size: 0.875rem; transition: all 0.2s; }
+.refresh-btn:hover { background: #f7fafc; border-color: #cbd5e0; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container { padding: 1rem; }
+  .form-grid { grid-template-columns: 1fr; }
+  .header { flex-direction: column; align-items: flex-start; }
+  .table-wrapper { font-size: 0.8125rem; }
+}
+
+/* Code verifier display helper */
+.monospace { font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace; font-size: 0.75rem; word-break: break-all; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Login page -->
+  <div id="login-page" class="login-page" style="display:none">
+    <div class="login-card">
+      <h1>Odoo MCP Admin</h1>
+      <p>Sign in with your Dex credentials to manage users</p>
+      <div id="login-error" class="alert alert-error" style="display:none"></div>
+      <button id="login-btn" class="btn-dex" onclick="startLogin()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Login with Dex
+      </button>
+    </div>
+  </div>
+
+  <!-- Admin panel -->
+  <div id="admin-panel" style="display:none">
+    <div class="container">
+      <div class="header">
+        <h1>Odoo MCP Admin</h1>
+        <div class="header-actions">
+          <span id="user-email" class="user-info"></span>
+          <button class="btn-logout" onclick="logout()">Logout</button>
+        </div>
+      </div>
+      <div id="alert" class="alert"></div>
+
+      <!-- User table -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+          <h2 style="margin:0; border:none; padding:0;">Users</h2>
+          <div style="display:flex; gap:0.5rem;">
+            <button class="refresh-btn" onclick="loadUsers()">&#x21bb; Refresh</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dex User ID</th>
+                <th>Email</th>
+                <th>Odoo URL</th>
+                <th>Odoo DB</th>
+                <th>Odoo Login</th>
+                <th>Created At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="7" class="loading">Loading users</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Add user form -->
+      <div class="card">
+        <h2>Add User</h2>
+        <form id="add-user-form" onsubmit="addUser(event)">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="f-username">Username *</label>
+              <input id="f-username" type="text" required>
+            </div>
+            <div class="form-group">
+              <label for="f-password">Password *</label>
+              <input id="f-password" type="password" required>
+            </div>
+            <div class="form-group">
+              <label for="f-odoo-url">Odoo URL *</label>
+              <input id="f-odoo-url" type="url" placeholder="https://odoo.example.com" required>
+            </div>
+            <div class="form-group">
+              <label for="f-odoo-db">Odoo DB *</label>
+              <input id="f-odoo-db" type="text" placeholder="odoo19" required>
+            </div>
+            <div class="form-group">
+              <label for="f-odoo-login">Odoo Login *</label>
+              <input id="f-odoo-login" type="text" placeholder="admin" required>
+            </div>
+            <div class="form-group">
+              <label for="f-odoo-uid">Odoo UID</label>
+              <input id="f-odoo-uid" type="number" placeholder="2 (optional)">
+            </div>
+            <div class="form-group">
+              <label for="f-odoo-api-key">Odoo API Key</label>
+              <input id="f-odoo-api-key" type="text" placeholder="(optional)">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add User</button>
+            <button type="reset" class="btn btn-secondary">Clear</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ============================================================
+// Configuration
+// ============================================================
+
+// The client_id used for the OAuth authorization code flow.
+// Must be pre-registered in Dex with the redirect_uri matching this page.
+const CLIENT_ID = "admin-ui";
+
+// ============================================================
+// State
+// ============================================================
+
+let accessToken = null;
+
+// ============================================================
+// Entry point
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", () => {
+  // 1. Check URL for an OAuth authorization code (redirect from Dex).
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get("code");
+  const error = urlParams.get("error");
+
+  if (code) {
+    // We have a code — exchange it for a token, then remove code from URL.
+    exchangeCodeForToken(code)
+      .then(token => {
+        accessToken = token;
+        localStorage.setItem("admin_token", token);
+        // Clean URL: remove query params without reloading.
+        window.history.replaceState({}, document.title, "/admin");
+        showAdminPanel();
+      })
+      .catch(err => {
+        showLoginPage("Token exchange failed: " + err.message);
+      });
+    return;
+  }
+
+  if (error) {
+    showLoginPage("Authorization denied: " + error);
+    window.history.replaceState({}, document.title, "/admin");
+    return;
+  }
+
+  // 2. Check for stored token.
+  const stored = localStorage.getItem("admin_token");
+  if (stored) {
+    accessToken = stored;
+    showAdminPanel();
+    return;
+  }
+
+  // 3. No token — show login page.
+  showLoginPage();
+});
+
+// ============================================================
+// Page state helpers
+// ============================================================
+
+function showLoginPage(errorMsg) {
+  document.getElementById("login-page").style.display = "flex";
+  document.getElementById("admin-panel").style.display = "none";
+  document.getElementById("login-btn").disabled = false;
+  document.getElementById("login-btn").textContent = "Login with Dex";
+
+  const errEl = document.getElementById("login-error");
+  if (errorMsg) {
+    errEl.textContent = errorMsg;
+    errEl.style.display = "block";
+  } else {
+    errEl.style.display = "none";
+  }
+}
+
+function showAdminPanel() {
+  document.getElementById("login-page").style.display = "none";
+  document.getElementById("admin-panel").style.display = "block";
+  loadUsers();
+}
+
+// ============================================================
+// PKCE helpers
+// ============================================================
+
+function generateRandomString(length) {
+  const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return Array.from(array, byte => charset[byte % charset.length]).join("");
+}
+
+async function sha256(plain) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plain);
+  return crypto.subtle.digest("SHA-256", data);
+}
+
+function base64url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+async function startLogin() {
+  document.getElementById("login-btn").disabled = true;
+  document.getElementById("login-btn").textContent = "Redirecting...";
+
+  const codeVerifier = generateRandomString(64);
+  const challengeBuffer = await sha256(codeVerifier);
+  const codeChallenge = base64url(challengeBuffer);
+
+  // Store verifier so we can use it after redirect.
+  sessionStorage.setItem("code_verifier", codeVerifier);
+
+  const redirectUri = window.location.origin + "/admin";
+  const authUrl = new URL("/authorize", window.location.origin);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("client_id", CLIENT_ID);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("scope", "openid email profile");
+  authUrl.searchParams.set("code_challenge", codeChallenge);
+  authUrl.searchParams.set("code_challenge_method", "S256");
+
+  window.location.href = authUrl.toString();
+}
+
+// ============================================================
+// Token exchange
+// ============================================================
+
+async function exchangeCodeForToken(code) {
+  const codeVerifier = sessionStorage.getItem("code_verifier");
+  sessionStorage.removeItem("code_verifier");
+
+  const redirectUri = window.location.origin + "/admin";
+  const body = new URLSearchParams();
+  body.set("grant_type", "authorization_code");
+  body.set("code", code);
+  body.set("redirect_uri", redirectUri);
+  body.set("client_id", CLIENT_ID);
+  if (codeVerifier) {
+    body.set("code_verifier", codeVerifier);
+  }
+
+  const resp = await fetch("/dex/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Token exchange failed (${resp.status}): ${text}`);
+  }
+
+  const data = await resp.json();
+  if (!data.access_token) {
+    throw new Error("No access_token in response");
+  }
+  return data.access_token;
+}
+
+// ============================================================
+// API helpers
+// ============================================================
+
+function getToken() {
+  return accessToken;
+}
+
+async function apiCall(method, path, body) {
+  const token = getToken();
+  if (!token) {
+    logout();
+    throw new Error("Not authenticated");
+  }
+
+  const opts = {
+    method: method,
+    headers: {
+      "Authorization": "Bearer " + token,
+    },
+  };
+
+  if (body !== undefined) {
+    opts.headers["Content-Type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+
+  const resp = await fetch(path, opts);
+
+  if (resp.status === 401) {
+    // Token expired or invalid — redirect to login.
+    localStorage.removeItem("admin_token");
+    accessToken = null;
+    showToast("Session expired. Please login again.", "error");
+    setTimeout(() => { showLoginPage("Session expired. Please login again."); }, 1500);
+    throw new Error("Unauthorized");
+  }
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    let msg;
+    try {
+      const j = JSON.parse(text);
+      msg = j.error || j.message || text;
+    } catch {
+      msg = text || `HTTP ${resp.status}`;
+    }
+    throw new Error(msg);
+  }
+
+  // Some responses (DELETE) may be 204 No Content.
+  const contentType = resp.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return resp.json();
+  }
+  return null;
+}
+
+// ============================================================
+// User CRUD
+// ============================================================
+
+async function loadUsers() {
+  const tbody = document.getElementById("users-tbody");
+  tbody.innerHTML = '<tr><td colspan="7" class="loading">Loading users</td></tr>';
+
+  try {
+    const users = await apiCall("GET", "/admin/users");
+    if (!users || users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No users found.</p></div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = users.map(u => {
+      const createdAt = u.created_at ? new Date(u.created_at).toLocaleString() : "-";
+      const email = u.email || u.odoo_login || "-";
+      return `<tr>
+        <td class="monospace">${escapeHtml(u.dex_user_id || "-")}</td>
+        <td>${escapeHtml(email)}</td>
+        <td>${escapeHtml(u.odoo_url || "-")}</td>
+        <td>${escapeHtml(u.odoo_db || "-")}</td>
+        <td>${escapeHtml(u.odoo_login || "-")}</td>
+        <td>${createdAt}</td>
+        <td><button class="btn btn-danger" onclick="deleteUser('${escapeHtml(u.dex_user_id)}')">Delete</button></td>
+      </tr>`;
+    }).join("");
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="alert alert-error">Failed to load users: ${escapeHtml(err.message)}</div></td></tr>`;
+  }
+}
+
+async function addUser(event) {
+  event.preventDefault();
+  const form = document.getElementById("add-user-form");
+  const submitBtn = form.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Adding...";
+
+  const payload = {
+    username: document.getElementById("f-username").value.trim(),
+    password: document.getElementById("f-password").value,
+    odoo_url: document.getElementById("f-odoo-url").value.trim(),
+    odoo_db: document.getElementById("f-odoo-db").value.trim(),
+    odoo_login: document.getElementById("f-odoo-login").value.trim(),
+  };
+
+  const uid = document.getElementById("f-odoo-uid").value.trim();
+  if (uid) {
+    payload.odoo_uid = parseInt(uid, 10);
+  }
+
+  const apiKey = document.getElementById("f-odoo-api-key").value.trim();
+  if (apiKey) {
+    payload.odoo_api_key = apiKey;
+  }
+
+  try {
+    await apiCall("POST", "/admin/users", payload);
+    showToast("User added successfully", "success");
+    form.reset();
+    loadUsers();
+  } catch (err) {
+    showToast("Failed to add user: " + err.message, "error");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Add User";
+  }
+}
+
+async function deleteUser(dexUserId) {
+  if (!confirm("Are you sure you want to delete user '" + dexUserId + "'? This action cannot be undone.")) {
+    return;
+  }
+
+  try {
+    await apiCall("DELETE", "/admin/users/" + encodeURIComponent(dexUserId));
+    showToast("User deleted successfully", "success");
+    loadUsers();
+  } catch (err) {
+    showToast("Failed to delete user: " + err.message, "error");
+  }
+}
+
+// ============================================================
+// Logout
+// ============================================================
+
+function logout() {
+  localStorage.removeItem("admin_token");
+  accessToken = null;
+  showLoginPage();
+}
+
+// ============================================================
+// Utility
+// ============================================================
+
+function escapeHtml(str) {
+  if (typeof str !== "string") return String(str || "");
+  const div = document.createElement("div");
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+function showToast(message, type) {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.className = "toast toast-" + type + " show";
+  clearTimeout(toast._hideTimeout);
+  toast._hideTimeout = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 4000);
+}
+</script>
+</body>
+</html>

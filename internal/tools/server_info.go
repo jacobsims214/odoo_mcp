@@ -2,31 +2,30 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/simstech/odoo-mcp/internal/audit"
 )
 
 // serverInfoTool returns the server_info tool definition.
-func serverInfoTool() mcp.Tool {
-	return mcp.NewTool("odoo_get_server_info",
-		mcp.WithDescription(`Get Odoo server version and current authenticated user information. Use this to verify connectivity and confirm which user the MCP server is acting as.`),
-	)
+func serverInfoTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "odoo_get_server_info",
+		Description: `Get Odoo server version and current authenticated user information. Use this to verify connectivity and confirm which user the MCP server is acting as.`,
+	}
 }
 
 // makeServerInfoHandler returns the handler for server_info.
-func makeServerInfoHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func makeServerInfoHandler(deps Deps) func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, any, error) {
 		start := time.Now()
-		sessID := sessionID(ctx, deps)
-
-		// 1. Parse inputs (none)
+		sessID := sessionID(req.Session)
 
 		// 2. Guardrails
-		if err := deps.Guardrails.CheckRate(sessID); err != nil {
-			return toolError(err.Error()), nil
+		if err := deps.Guardrails.CheckRate(ctx, sessID); err != nil {
+			return toolError(err.Error()), nil, nil
 		}
 
 		// 3. Call Odoo
@@ -39,14 +38,16 @@ func makeServerInfoHandler(deps Deps) server.ToolHandlerFunc {
 		}, start, err)
 
 		if err != nil {
-			return toolErrorf("server_info failed: %s", err), nil
+			return toolErrorf("server_info failed: %s", err), nil, nil
 		}
 
 		// 5. Return JSON result
-		result, err := mcp.NewToolResultJSON(serverInfo)
+		jsonBytes, err := json.Marshal(serverInfo)
 		if err != nil {
-			return toolErrorf("encode result: %s", err), nil
+			return toolErrorf("encode result: %s", err), nil, nil
 		}
-		return result, nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: string(jsonBytes)}},
+		}, nil, nil
 	}
 }

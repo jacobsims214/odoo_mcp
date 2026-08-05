@@ -5,85 +5,74 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/simstech/odoo-mcp/internal/audit"
 )
 
+// ReadInput is the typed input for odoo_read.
+type ReadInput struct {
+	Model  string `json:"model" jsonschema:"Odoo model technical name, e.g. 'res.partner', 'sale.order', 'avware.units'"`
+	IDs    string `json:"ids" jsonschema:"JSON array of integer IDs, e.g. [1, 2, 3]"`
+	Fields string `json:"fields,omitempty" jsonschema:"JSON array of field names to return. Default: []"`
+}
+
 // readTool returns the read tool definition.
-func readTool() mcp.Tool {
-	return mcp.NewTool("odoo_read",
-		mcp.WithDescription(`Read specific fields on Odoo records by their IDs. Use when you already know the record IDs.`),
-		mcp.WithString("model",
-			mcp.Required(),
-			mcp.Description("Odoo model technical name, e.g. 'res.partner', 'sale.order', 'avware.units'"),
-		),
-		mcp.WithString("ids",
-			mcp.Required(),
-			mcp.Description("JSON array of integer IDs, e.g. [1, 2, 3]"),
-		),
-		mcp.WithString("fields",
-			mcp.Description(`JSON array of field names to return. Example: ["name","email","phone"].
-If omitted, returns all fields (may be slow for large models).`),
-			mcp.DefaultString("[]"),
-		),
-	)
+func readTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "odoo_read",
+		Description: `Read specific fields on Odoo records by their IDs. Use when you already know the record IDs.`,
+	}
 }
 
 // makeReadHandler returns the handler for read.
-func makeReadHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func makeReadHandler(deps Deps) func(context.Context, *mcp.CallToolRequest, ReadInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, input ReadInput) (*mcp.CallToolResult, any, error) {
 		start := time.Now()
-		sessID := sessionID(ctx, deps)
+		sessID := sessionID(req.Session)
 
 		// 1. Parse inputs
-		model, err := request.RequireString("model")
+		ids, err := parseIDs(input.IDs)
 		if err != nil {
-			return toolError(err.Error()), nil
+			return toolErrorf("invalid ids: %s", err), nil, nil
 		}
 
-		idsStr, err := request.RequireString("ids")
-		if err != nil {
-			return toolError(err.Error()), nil
+		fieldsStr := input.Fields
+		if fieldsStr == "" {
+			fieldsStr = "[]"
 		}
-
-		ids, err := parseIDs(idsStr)
-		if err != nil {
-			return toolErrorf("invalid ids: %s", err), nil
-		}
-
-		fieldsStr := request.GetString("fields", "[]")
 		fields, err := parseStringArray(fieldsStr)
 		if err != nil {
-			return toolErrorf("invalid fields: %s", err), nil
+			return toolErrorf("invalid fields: %s", err), nil, nil
 		}
 
 		// 2. Guardrails
-		if err := deps.Guardrails.CheckRate(sessID); err != nil {
-			return toolError(err.Error()), nil
+		if err := deps.Guardrails.CheckRate(ctx, sessID); err != nil {
+			return toolError(err.Error()), nil, nil
 		}
-		if err := deps.Guardrails.CheckModel(model); err != nil {
-			return toolError(err.Error()), nil
+		if err := deps.Guardrails.CheckModel(input.Model); err != nil {
+			return toolError(err.Error()), nil, nil
 		}
 
 		// 3. Call Odoo
 		client := odooClient(ctx, deps)
-		records, err := client.Read(ctx, model, ids, fields)
+		records, err := client.Read(ctx, input.Model, ids, fields)
 
 		// 4. Audit
 		auditResult(ctx, deps, audit.Entry{
-			SessionID: sessID, Tool: "odoo_read", Model: model, Method: "read",
+			SessionID: sessID, Tool: "odoo_read", Model: input.Model, Method: "read",
 		}, start, err)
 
 		if err != nil {
-			return toolErrorf("read failed: %s", err), nil
+			return toolErrorf("read failed: %s", err), nil, nil
 		}
 
 		// 5. Return JSON result
 		jsonBytes, err := json.Marshal(records)
 		if err != nil {
-			return toolErrorf("encode result: %s", err), nil
+			return toolErrorf("encode result: %s", err), nil, nil
 		}
-		return mcp.NewToolResultText(string(jsonBytes)), nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: string(jsonBytes)}},
+		}, nil, nil
 	}
 }

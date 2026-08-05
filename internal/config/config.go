@@ -13,8 +13,6 @@ import (
 // Config holds all configuration for the Odoo MCP server.
 type Config struct {
 	// Odoo connection
-	OdooURL     string        // ODOO_URL — required, e.g. "http://localhost:8069"
-	OdooDB      string        // ODOO_DB — required, e.g. "odoo19"
 	OdooAPIKey  string        // ODOO_API_KEY — required for service account mode
 	OdooTimeout time.Duration // ODOO_TIMEOUT — default 30s
 
@@ -23,12 +21,37 @@ type Config struct {
 	HTTPAddr  string // ODOO_MCP_ADDR — default ":8080"
 
 	// Auth mode
-	AuthMode string // ODOO_MCP_AUTH_MODE — "service" | "per-session", default "service"
+	AuthMode      string // ODOO_MCP_AUTH_MODE — "service" | "per-session", default "service"
+	MCPPublicURL  string // ODOO_MCP_PUBLIC_URL — public URL of this MCP server, default "http://localhost:8080"
+	DexPublicURL  string // DEX_PUBLIC_URL — public Dex OIDC issuer URL for clients, default same as DEX_ISSUER_URL
+	KeyStoreURL   string // KEY_STORE_URL — URL of the Key Store service, default "http://keystore:8080"
+
+	// Session mode
+	StatelessSessions bool // STATELESS_SESSIONS — default false (stateful)
 
 	// Guardrails
 	BlockedModels []string // ODOO_BLOCKED_MODELS — comma-separated, default list
 	ReadOnlyMode  bool     // ODOO_READ_ONLY — default false
 	RateLimitRPS  int      // ODOO_RATE_LIMIT_RPS — requests per second, default 10
+
+	// Cache
+	ValkeyAddr string // VALKEY_ADDR — Valkey/Redis address, default "valkey:6379"
+
+	// Database (user_mappings)
+	DatabaseURL string // DATABASE_URL — PostgreSQL connection string for the MCP database
+
+	// Dex OIDC (token validation)
+	DexIssuerURL   string // DEX_ISSUER_URL — Dex OIDC issuer URL, e.g. "http://localhost:8088/dex"
+	DexInternalURL string // DEX_INTERNAL_URL — Internal Dex URL for JWKS, defaults to DEX_ISSUER_URL
+
+	// Dex gRPC (admin API for user/password management)
+	DexGRPCAddr string // DEX_GRPC_ADDR — Dex gRPC address, e.g. "dex-grpc.namespace.svc.cluster.local:5557"
+	DexGRPCCA   string // DEX_GRPC_CA — CA cert file for Dex gRPC mTLS
+	DexGRPCCert string // DEX_GRPC_CERT — client cert file for Dex gRPC mTLS
+	DexGRPCKey  string // DEX_GRPC_KEY — client key file for Dex gRPC mTLS
+
+	// Key Store encryption
+	KeyStoreEncryptionKey string // KEY_STORE_ENCRYPTION_KEY — 32-byte hex-encoded AES-256 key for encrypting Odoo API keys
 
 	// Logging
 	LogLevel  string // ODOO_LOG_LEVEL — "debug"|"info"|"warn"|"error", default "info"
@@ -51,8 +74,6 @@ func Load() (*Config, error) {
 
 	c := &Config{
 		// Odoo connection
-		OdooURL:     os.Getenv("ODOO_URL"),
-		OdooDB:      os.Getenv("ODOO_DB"),
 		OdooAPIKey:  os.Getenv("ODOO_API_KEY"),
 		OdooTimeout: 30 * time.Second, // default
 
@@ -61,11 +82,36 @@ func Load() (*Config, error) {
 		HTTPAddr:  getEnvOrDefault("ODOO_MCP_ADDR", ":8080"),
 
 		// Auth mode
-		AuthMode: getEnvOrDefault("ODOO_MCP_AUTH_MODE", "service"),
+		AuthMode:     getEnvOrDefault("ODOO_MCP_AUTH_MODE", "service"),
+		MCPPublicURL: getEnvOrDefault("ODOO_MCP_PUBLIC_URL", "http://localhost:8080"),
+		DexPublicURL: os.Getenv("DEX_PUBLIC_URL"),
+		KeyStoreURL:  getEnvOrDefault("KEY_STORE_URL", "http://keystore:8080"),
+
+		// Session mode
+		StatelessSessions: getEnvBool("STATELESS_SESSIONS", false),
 
 		// Guardrails
 		ReadOnlyMode: getEnvBool("ODOO_READ_ONLY", false),
 		RateLimitRPS: getEnvInt("ODOO_RATE_LIMIT_RPS", 10),
+
+		// Cache
+		ValkeyAddr: getEnvOrDefault("VALKEY_ADDR", "valkey:6379"),
+
+		// Database
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+
+// Dex OIDC
+		DexIssuerURL:   os.Getenv("DEX_ISSUER_URL"),
+		DexInternalURL: getEnvOrDefault("DEX_INTERNAL_URL", os.Getenv("DEX_ISSUER_URL")),
+
+		// Dex gRPC
+		DexGRPCAddr: getEnvOrDefault("DEX_GRPC_ADDR", ""),
+		DexGRPCCA:   os.Getenv("DEX_GRPC_CA"),
+		DexGRPCCert: os.Getenv("DEX_GRPC_CERT"),
+		DexGRPCKey:  os.Getenv("DEX_GRPC_KEY"),
+
+		// Key Store encryption
+		KeyStoreEncryptionKey: os.Getenv("KEY_STORE_ENCRYPTION_KEY"),
 
 		// Logging
 		LogLevel:  getEnvOrDefault("ODOO_LOG_LEVEL", "info"),
@@ -98,14 +144,6 @@ func Load() (*Config, error) {
 
 // Validate checks that required fields are set and values are valid.
 func (c *Config) Validate() error {
-	// Check required fields
-	if c.OdooURL == "" {
-		return fmt.Errorf("ODOO_URL is required")
-	}
-	if c.OdooDB == "" {
-		return fmt.Errorf("ODOO_DB is required")
-	}
-
 	// OdooAPIKey is required for service auth mode
 	if c.AuthMode == "service" && c.OdooAPIKey == "" {
 		return fmt.Errorf("ODOO_API_KEY is required when ODOO_MCP_AUTH_MODE is 'service'")
@@ -115,10 +153,9 @@ func (c *Config) Validate() error {
 	validTransports := map[string]bool{
 		"stdio": true,
 		"http":  true,
-		"sse":   true,
 	}
 	if !validTransports[c.Transport] {
-		return fmt.Errorf("invalid ODOO_MCP_TRANSPORT: %q (must be 'stdio', 'http', or 'sse')", c.Transport)
+		return fmt.Errorf("invalid ODOO_MCP_TRANSPORT: %q (must be 'stdio' or 'http')", c.Transport)
 	}
 
 	// Validate AuthMode

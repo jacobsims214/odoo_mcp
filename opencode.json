@@ -3,7 +3,7 @@
   "mcp": {
     "odoo": {
       "type": "remote",
-      "url": "http://localhost:8085/mcp",
+      "url": "http://localhost:8088/mcp",
       "enabled": true
     }
   }

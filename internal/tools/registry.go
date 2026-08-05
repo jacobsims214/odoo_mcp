@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/simstech/odoo-mcp/internal/audit"
 	"github.com/simstech/odoo-mcp/internal/guardrails"
 	"github.com/simstech/odoo-mcp/internal/odoo"
-	"github.com/simstech/odoo-mcp/internal/session"
 )
 
 // Deps holds all dependencies shared by tool handlers.
@@ -19,113 +17,100 @@ type Deps struct {
 	Odoo       odoo.OdooClient
 	Guardrails *guardrails.Guardrails
 	Audit      audit.AuditLogger
-	Session    *session.Session // for stdio; nil for HTTP (session from context)
 }
 
 // RegisterAll registers all Odoo MCP tools on the given server.
-func RegisterAll(s *server.MCPServer, deps Deps) {
-	s.AddTool(searchReadTool(), makeSearchReadHandler(deps))
-	s.AddTool(readTool(), makeReadHandler(deps))
-	s.AddTool(createTool(), makeCreateHandler(deps))
-	s.AddTool(writeTool(), makeWriteHandler(deps))
-	s.AddTool(unlinkTool(), makeUnlinkHandler(deps))
-	s.AddTool(callTool(), makeCallHandler(deps))
-	s.AddTool(fieldsGetTool(), makeFieldsGetHandler(deps))
-	s.AddTool(listModelsTool(), makeListModelsHandler(deps))
-	s.AddTool(serverInfoTool(), makeServerInfoHandler(deps))
-	// Dedicated chatter tool — handles HTML correctly via mail.message/create
-	s.AddTool(messagePostTool(), makeMessagePostHandler(deps))
+func RegisterAll(s *mcp.Server, deps Deps) {
+	mcp.AddTool(s, createTool(), makeCreateHandler(deps))
+	mcp.AddTool(s, writeTool(), makeWriteHandler(deps))
+	mcp.AddTool(s, unlinkTool(), makeUnlinkHandler(deps))
+	mcp.AddTool(s, searchReadTool(), makeSearchReadHandler(deps))
+	mcp.AddTool(s, readTool(), makeReadHandler(deps))
+	mcp.AddTool(s, callTool(), makeCallHandler(deps))
+	mcp.AddTool(s, fieldsGetTool(), makeFieldsGetHandler(deps))
+	mcp.AddTool(s, listModelsTool(), makeListModelsHandler(deps))
+	mcp.AddTool(s, serverInfoTool(), makeServerInfoHandler(deps))
+	mcp.AddTool(s, messagePostTool(), makeMessagePostHandler(deps))
 }
 
-// readTool and makeReadHandler are implemented in read.go
+// Input structs for tools defined in this file.
+
+// CreateInput is the typed input for odoo_create.
+type CreateInput struct {
+	Model  string `json:"model" jsonschema:"Odoo model technical name, e.g. 'res.partner', 'sale.order'"`
+	Values string `json:"values" jsonschema:"JSON object of field values, e.g. {\"name\": \"New Partner\", \"email\": \"new@example.com\"}"`
+}
+
+// WriteInput is the typed input for odoo_write.
+type WriteInput struct {
+	Model  string `json:"model" jsonschema:"Odoo model technical name, e.g. 'res.partner', 'sale.order'"`
+	IDs    string `json:"ids" jsonschema:"JSON array of integer IDs, e.g. [42, 43]"`
+	Values string `json:"values" jsonschema:"JSON object of field values to update"`
+}
+
+// UnlinkInput is the typed input for odoo_unlink.
+type UnlinkInput struct {
+	Model string `json:"model" jsonschema:"Odoo model technical name, e.g. 'res.partner', 'sale.order'"`
+	IDs   string `json:"ids" jsonschema:"JSON array of integer IDs to delete"`
+}
 
 // createTool returns the create tool definition.
-func createTool() mcp.Tool {
-	return mcp.NewTool("odoo_create",
-		mcp.WithDescription("Create a new Odoo record. Returns the ID of the created record."),
-		mcp.WithString("model",
-			mcp.Required(),
-			mcp.Description("Odoo model technical name, e.g. 'res.partner', 'sale.order'"),
-		),
-		mcp.WithString("values",
-			mcp.Required(),
-			mcp.Description("JSON object of field values, e.g. {\"name\": \"New Partner\", \"email\": \"new@example.com\"}"),
-		),
-	)
+func createTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "odoo_create",
+		Description: "Create a new Odoo record. Returns the ID of the created record.",
+	}
 }
 
 // makeCreateHandler returns the handler for create.
-func makeCreateHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return odooCreateHandler(ctx, request, deps)
+func makeCreateHandler(deps Deps) func(context.Context, *mcp.CallToolRequest, CreateInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, input CreateInput) (*mcp.CallToolResult, any, error) {
+		return odooCreateHandler(ctx, req, input, deps)
 	}
 }
 
 // writeTool returns the write tool definition.
-func writeTool() mcp.Tool {
-	return mcp.NewTool("odoo_write",
-		mcp.WithDescription("Update existing Odoo records. Provide the record IDs and the fields to update."),
-		mcp.WithString("model",
-			mcp.Required(),
-			mcp.Description("Odoo model technical name, e.g. 'res.partner', 'sale.order'"),
-		),
-		mcp.WithString("ids",
-			mcp.Required(),
-			mcp.Description("JSON array of integer IDs, e.g. [42, 43]"),
-		),
-		mcp.WithString("values",
-			mcp.Required(),
-			mcp.Description("JSON object of field values to update"),
-		),
-	)
+func writeTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "odoo_write",
+		Description: "Update existing Odoo records. Provide the record IDs and the fields to update.",
+	}
 }
 
 // makeWriteHandler returns the handler for write.
-func makeWriteHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return odooWriteHandler(ctx, request, deps)
+func makeWriteHandler(deps Deps) func(context.Context, *mcp.CallToolRequest, WriteInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, input WriteInput) (*mcp.CallToolResult, any, error) {
+		return odooWriteHandler(ctx, req, input, deps)
 	}
 }
 
 // unlinkTool returns the unlink tool definition.
-func unlinkTool() mcp.Tool {
-	return mcp.NewTool("odoo_unlink",
-		mcp.WithDescription("Delete Odoo records permanently. This cannot be undone. Provide the record IDs to delete."),
-		mcp.WithString("model",
-			mcp.Required(),
-			mcp.Description("Odoo model technical name, e.g. 'res.partner', 'sale.order'"),
-		),
-		mcp.WithString("ids",
-			mcp.Required(),
-			mcp.Description("JSON array of integer IDs to delete"),
-		),
-	)
+func unlinkTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "odoo_unlink",
+		Description: "Delete Odoo records permanently. This cannot be undone. Provide the record IDs to delete.",
+	}
 }
 
 // makeUnlinkHandler returns the handler for unlink.
-func makeUnlinkHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		return odooUnlinkHandler(ctx, request, deps)
+func makeUnlinkHandler(deps Deps) func(context.Context, *mcp.CallToolRequest, UnlinkInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, input UnlinkInput) (*mcp.CallToolResult, any, error) {
+		return odooUnlinkHandler(ctx, req, input, deps)
 	}
 }
 
+// readTool and makeReadHandler are implemented in read.go
+// searchReadTool and makeSearchReadHandler are implemented in search_read.go
 // callTool and makeCallHandler are implemented in call.go
-
 // fieldsGetTool and makeFieldsGetHandler are implemented in fields_get.go
-
 // listModelsTool and makeListModelsHandler are implemented in list_models.go
-
 // serverInfoTool and makeServerInfoHandler are implemented in server_info.go
+// messagePostTool and makeMessagePostHandler are implemented in message_post.go
 
-// sessionID extracts the session ID from context (HTTP) or returns "stdio".
-func sessionID(ctx context.Context, deps Deps) string {
-	if deps.Session != nil {
-		return deps.Session.ID
-	}
-	// For HTTP transport, session ID comes from MCP server context
-	sess := server.ClientSessionFromContext(ctx)
+// sessionID extracts the session ID from the MCP server session.
+func sessionID(sess *mcp.ServerSession) string {
 	if sess != nil {
-		return sess.SessionID()
+		return sess.ID()
 	}
 	return "unknown"
 }
@@ -199,10 +184,13 @@ func auditResult(ctx context.Context, deps Deps, entry audit.Entry, start time.T
 
 // toolError returns an MCP error result (not a Go error — MCP protocol error).
 func toolError(msg string) *mcp.CallToolResult {
-	return mcp.NewToolResultError(msg)
+	return &mcp.CallToolResult{
+		IsError: true,
+		Content: []mcp.Content{&mcp.TextContent{Text: msg}},
+	}
 }
 
 // toolErrorf formats and returns an MCP error result.
 func toolErrorf(format string, args ...interface{}) *mcp.CallToolResult {
-	return mcp.NewToolResultError(fmt.Sprintf(format, args...))
+	return toolError(fmt.Sprintf(format, args...))
 }

@@ -6,68 +6,66 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/simstech/odoo-mcp/internal/audit"
+	"github.com/simstech/odoo-mcp/internal/odoo"
 )
 
+// ListModelsInput is the typed input for odoo_list_models.
+type ListModelsInput struct {
+	Filter string `json:"filter,omitempty" jsonschema:"Substring filter on model name (e.g. 'avware' to find all avware.* models). If omitted, returns all models."`
+}
+
 // listModelsTool returns the list_models tool definition.
-func listModelsTool() mcp.Tool {
-	return mcp.NewTool("odoo_list_models",
-		mcp.WithDescription(`List all Odoo models available on this server. Use this to discover what models are installed before searching or reading records.`),
-		mcp.WithString("filter",
-			mcp.Description(`Substring filter on model name (e.g. "avware" to find all avware.* models). If omitted, returns all models.`),
-			mcp.DefaultString(""),
-		),
-	)
+func listModelsTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name:        "odoo_list_models",
+		Description: "List all Odoo models available on this server. Use this to discover what models are installed before searching or reading records.",
+	}
 }
 
 // makeListModelsHandler returns the handler for list_models.
-func makeListModelsHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func makeListModelsHandler(deps Deps) func(context.Context, *mcp.CallToolRequest, ListModelsInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, input ListModelsInput) (*mcp.CallToolResult, any, error) {
 		start := time.Now()
-		sessID := sessionID(ctx, deps)
+		sessID := sessionID(req.Session)
 
-		// 1. Parse inputs
-		filter := request.GetString("filter", "")
-
-		// 2. Guardrails
-		if err := deps.Guardrails.CheckRate(sessID); err != nil {
-			return toolError(err.Error()), nil
+		// 1. Guardrails
+		if err := deps.Guardrails.CheckRate(ctx, sessID); err != nil {
+			return toolError(err.Error()), nil, nil
 		}
 
-		// 3. Call Odoo
+		// 2. Call Odoo
 		client := odooClient(ctx, deps)
 		models, err := client.ListModels(ctx)
 
-		// 4. Audit
+		// 3. Audit
 		auditResult(ctx, deps, audit.Entry{
 			SessionID: sessID, Tool: "odoo_list_models", Method: "list_models",
 		}, start, err)
 
 		if err != nil {
-			return toolErrorf("list_models failed: %s", err), nil
+			return toolErrorf("list_models failed: %s", err), nil, nil
 		}
 
-		// Filter results if filter is provided
-		var filtered []interface{}
-		if filter != "" {
-			for _, model := range models {
-				if strings.Contains(model.Name, filter) {
-					filtered = append(filtered, model)
+		// 4. Filter by name if a filter string was provided
+		if input.Filter != "" {
+			var filtered []odoo.ModelInfo
+			for _, m := range models {
+				if strings.Contains(m.Name, input.Filter) {
+					filtered = append(filtered, m)
 				}
 			}
-		} else {
-			for _, model := range models {
-				filtered = append(filtered, model)
-			}
+			models = filtered
 		}
 
 		// 5. Return JSON result
-		jsonBytes, err := json.Marshal(filtered)
+		jsonBytes, err := json.Marshal(models)
 		if err != nil {
-			return toolErrorf("encode result: %s", err), nil
+			return toolErrorf("encode result: %s", err), nil, nil
 		}
-		return mcp.NewToolResultText(string(jsonBytes)), nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: string(jsonBytes)}},
+		}, nil, nil
 	}
 }

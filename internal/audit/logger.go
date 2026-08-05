@@ -21,6 +21,7 @@ type Entry struct {
 	Success    bool      `json:"success"`
 	Error      string    `json:"error,omitempty"`
 	UserLogin  string    `json:"user_login,omitempty"`
+	CacheHit   bool      `json:"cache_hit,omitempty"`
 }
 
 // Logger writes structured audit entries.
@@ -67,6 +68,9 @@ func (l *Logger) Log(ctx context.Context, e Entry) {
 	}
 	if e.UserLogin != "" {
 		attrs = append(attrs, slog.String("user_login", e.UserLogin))
+	}
+	if e.CacheHit {
+		attrs = append(attrs, slog.Bool("cache_hit", true))
 	}
 
 	l.log.LogAttrs(ctx, slog.LevelInfo, "audit", attrs...)

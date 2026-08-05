@@ -5,107 +5,96 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/simstech/odoo-mcp/internal/audit"
 )
 
 // odooUnlinkHandler handles the odoo_unlink tool.
 // Deletes Odoo records permanently.
-func odooUnlinkHandler(ctx context.Context, request mcp.CallToolRequest, deps Deps) (*mcp.CallToolResult, error) {
+func odooUnlinkHandler(ctx context.Context, req *mcp.CallToolRequest, input UnlinkInput, deps Deps) (*mcp.CallToolResult, any, error) {
 	start := time.Now()
-	sess := sessionID(ctx, deps)
+	sess := sessionID(req.Session)
 	client := odooClient(ctx, deps)
 
-	// Extract parameters
-	model := request.GetString("model", "")
-	if model == "" {
-		return toolError("model is required"), nil
-	}
-
-	idsStr := request.GetString("ids", "")
-	if idsStr == "" {
-		return toolError("ids is required"), nil
-	}
-
 	// Guardrails checks
-	if err := deps.Guardrails.CheckRate(sess); err != nil {
+	if err := deps.Guardrails.CheckRate(ctx, sess); err != nil {
 		auditResult(ctx, deps, audit.Entry{
 			SessionID: sess,
 			Tool:      "odoo_unlink",
-			Model:     model,
+			Model:     input.Model,
 			Success:   false,
 			Error:     err.Error(),
 		}, start, err)
-		return toolErrorf("rate limit exceeded: %v", err), nil
+		return toolError(err.Error()), nil, nil
 	}
 
-	if err := deps.Guardrails.CheckModel(model); err != nil {
+	if err := deps.Guardrails.CheckModel(input.Model); err != nil {
 		auditResult(ctx, deps, audit.Entry{
 			SessionID: sess,
 			Tool:      "odoo_unlink",
-			Model:     model,
+			Model:     input.Model,
 			Success:   false,
 			Error:     err.Error(),
 		}, start, err)
-		return toolErrorf("model blocked: %v", err), nil
+		return toolErrorf("model blocked: %v", err), nil, nil
 	}
 
 	if err := deps.Guardrails.CheckWrite(); err != nil {
 		auditResult(ctx, deps, audit.Entry{
 			SessionID: sess,
 			Tool:      "odoo_unlink",
-			Model:     model,
+			Model:     input.Model,
 			Success:   false,
 			Error:     err.Error(),
 		}, start, err)
-		return toolErrorf("write not allowed: %v", err), nil
+		return toolErrorf("write not allowed: %v", err), nil, nil
 	}
 
 	// Parse ids
-	ids, err := parseIDs(idsStr)
+	ids, err := parseIDs(input.IDs)
 	if err != nil {
 		auditResult(ctx, deps, audit.Entry{
 			SessionID: sess,
 			Tool:      "odoo_unlink",
-			Model:     model,
+			Model:     input.Model,
 			Success:   false,
 			Error:     err.Error(),
 		}, start, err)
-		return toolErrorf("invalid ids: %v", err), nil
+		return toolErrorf("invalid ids: %v", err), nil, nil
 	}
 
 	// Validate ids is non-empty (prevent accidental mass delete)
 	if len(ids) == 0 {
-		err := "ids must not be empty"
+		errMsg := "ids must not be empty"
 		auditResult(ctx, deps, audit.Entry{
 			SessionID: sess,
 			Tool:      "odoo_unlink",
-			Model:     model,
+			Model:     input.Model,
 			Success:   false,
-			Error:     err,
+			Error:     errMsg,
 		}, start, nil)
-		return toolError(err), nil
+		return toolError(errMsg), nil, nil
 	}
 
 	// Call Odoo
-	err = client.Unlink(ctx, model, ids)
+	err = client.Unlink(ctx, input.Model, ids)
 	if err != nil {
 		auditResult(ctx, deps, audit.Entry{
 			SessionID: sess,
 			Tool:      "odoo_unlink",
-			Model:     model,
+			Model:     input.Model,
 			IDs:       ids,
 			Success:   false,
 			Error:     err.Error(),
 		}, start, err)
-		return toolErrorf("unlink failed: %v", err), nil
+		return toolErrorf("unlink failed: %v", err), nil, nil
 	}
 
 	// Audit success
 	auditResult(ctx, deps, audit.Entry{
 		SessionID: sess,
 		Tool:      "odoo_unlink",
-		Model:     model,
+		Model:     input.Model,
 		IDs:       ids,
 	}, start, nil)
 
@@ -115,5 +104,7 @@ func odooUnlinkHandler(ctx context.Context, request mcp.CallToolRequest, deps De
 		"deleted": len(ids),
 	}
 	resultJSON, _ := json.Marshal(result)
-	return mcp.NewToolResultText(string(resultJSON)), nil
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{&mcp.TextContent{Text: string(resultJSON)}},
+	}, nil, nil
 }

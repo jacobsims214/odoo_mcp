@@ -6,18 +6,24 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/simstech/odoo-mcp/internal/audit"
 )
 
+// MessagePostInput is the typed input for odoo_message_post.
+type MessagePostInput struct {
+	Model        string  `json:"model" jsonschema:"Odoo model technical name, e.g. 'sale.order', 'account.move', 'res.partner'"`
+	RecordID     float64 `json:"record_id" jsonschema:"ID of the record to post the message on"`
+	Body         string  `json:"body" jsonschema:"HTML body of the message. Use proper HTML tags like <p>, <b>, <ul>, <li>."`
+	MessageType  string  `json:"message_type,omitempty" jsonschema:"Type of message: 'comment' (default) or 'note'"`
+	SubtypeXmlid string  `json:"subtype_xmlid,omitempty" jsonschema:"Subtype XML ID: 'mail.mt_comment' (default) or 'mail.mt_note'"`
+}
+
 // messagePostTool returns the odoo_message_post tool definition.
-// This tool posts a properly-formatted HTML message to any Odoo record's chatter.
-// It uses mail.message/create directly (bypassing message_post's HTML sanitizer)
-// so that rich HTML — bold, lists, links — renders correctly in the Odoo UI.
-func messagePostTool() mcp.Tool {
-	return mcp.NewTool("odoo_message_post",
-		mcp.WithDescription(`Post a message to an Odoo record's chatter (activity log).
+func messagePostTool() *mcp.Tool {
+	return &mcp.Tool{
+		Name: "odoo_message_post",
+		Description: `Post a message to an Odoo record's chatter (activity log).
 Renders rich HTML correctly — bold, italic, lists, links all display properly in the Odoo UI.
 
 Use this instead of odoo_call with message_post — this tool handles HTML formatting correctly.
@@ -38,99 +44,57 @@ message_type options:
 
 subtype options (subtype_xmlid):
   - "mail.mt_comment"  — standard discussion message (default)
-  - "mail.mt_note"     — internal note subtype`),
-		mcp.WithString("model",
-			mcp.Required(),
-			mcp.Description("Odoo model technical name, e.g. 'avware.units', 'sale.order', 'project.task'"),
-		),
-		mcp.WithNumber("record_id",
-			mcp.Required(),
-			mcp.Description("ID of the record to post the message on"),
-		),
-		mcp.WithString("body",
-			mcp.Required(),
-			mcp.Description(`HTML body of the message. Use standard HTML tags for formatting:
-- Bold: <strong>text</strong>
-- Italic: <em>text</em>
-- Paragraph: <p>text</p>
-- Unordered list: <ul><li>item</li></ul>
-- Ordered list: <ol><li>item</li></ol>
-- Link: <a href="https://example.com">text</a>
-
-Do NOT double-wrap in <p> tags — write the HTML directly.`),
-		),
-		mcp.WithString("message_type",
-			mcp.Description(`Type of message. Options:
-- "comment" — visible chatter message, sent to followers (default)
-- "note"    — internal note, yellow background, not emailed to followers`),
-			mcp.DefaultString("comment"),
-		),
-		mcp.WithString("subtype_xmlid",
-			mcp.Description(`Subtype XML ID. Options:
-- "mail.mt_comment" — standard discussion (default)
-- "mail.mt_note"    — internal note`),
-			mcp.DefaultString("mail.mt_comment"),
-		),
-	)
+  - "mail.mt_note"     — internal note subtype`,
+	}
 }
 
 // makeMessagePostHandler returns the handler for odoo_message_post.
-// Uses mail.message/create directly to bypass Odoo's HTML sanitizer in message_post,
-// which would escape HTML tags when called via the external JSON-2 API.
-func makeMessagePostHandler(deps Deps) server.ToolHandlerFunc {
-	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func makeMessagePostHandler(deps Deps) func(context.Context, *mcp.CallToolRequest, MessagePostInput) (*mcp.CallToolResult, any, error) {
+	return func(ctx context.Context, req *mcp.CallToolRequest, input MessagePostInput) (*mcp.CallToolResult, any, error) {
 		start := time.Now()
-		sessID := sessionID(ctx, deps)
+		sessID := sessionID(req.Session)
 
-		// 1. Parse inputs
-		model, err := req.RequireString("model")
-		if err != nil {
-			return toolError(err.Error()), nil
-		}
-
-		recordID := int64(req.GetFloat("record_id", 0))
+		recordID := int64(input.RecordID)
 		if recordID == 0 {
-			return toolError("record_id is required and must be a non-zero integer"), nil
+			return toolError("record_id is required and must be a non-zero integer"), nil, nil
 		}
 
-		body, err := req.RequireString("body")
-		if err != nil {
-			return toolError(err.Error()), nil
-		}
-		if body == "" {
-			return toolError("body cannot be empty"), nil
+		if input.Body == "" {
+			return toolError("body cannot be empty"), nil, nil
 		}
 
-		messageType := req.GetString("message_type", "comment")
-		subtypeXmlid := req.GetString("subtype_xmlid", "mail.mt_comment")
+		messageType := input.MessageType
+		if messageType == "" {
+			messageType = "comment"
+		}
+		subtypeXmlid := input.SubtypeXmlid
+		if subtypeXmlid == "" {
+			subtypeXmlid = "mail.mt_comment"
+		}
 
 		// 2. Guardrails
-		if err := deps.Guardrails.CheckRate(sessID); err != nil {
-			return toolError(err.Error()), nil
+		if err := deps.Guardrails.CheckRate(ctx, sessID); err != nil {
+			return toolError(err.Error()), nil, nil
 		}
-		if err := deps.Guardrails.CheckModel(model); err != nil {
-			return toolError(err.Error()), nil
+		if err := deps.Guardrails.CheckModel(input.Model); err != nil {
+			return toolError(err.Error()), nil, nil
 		}
 		if err := deps.Guardrails.CheckWrite(); err != nil {
-			return toolError(err.Error()), nil
+			return toolError(err.Error()), nil, nil
 		}
 
 		// 3. Resolve subtype_id from xmlid
-		//    We need the integer ID of the subtype for mail.message/create.
 		client := odooClient(ctx, deps)
 		subtypeID, err := resolveSubtypeID(ctx, client, subtypeXmlid)
 		if err != nil {
-			// Fall back to subtype_id=1 (mt_comment) if resolution fails
 			subtypeID = 1
 		}
 
 		// 4. Create mail.message directly — bypasses message_post HTML sanitizer.
-		//    This is the correct approach for the JSON-2 external API.
-		//    message_post sanitizes HTML as untrusted input; mail.message/create does not.
 		vals := map[string]interface{}{
-			"body":         body,
+			"body":         input.Body,
 			"message_type": messageType,
-			"model":        model,
+			"model":        input.Model,
 			"res_id":       recordID,
 			"subtype_id":   subtypeID,
 		}
@@ -143,37 +107,39 @@ func makeMessagePostHandler(deps Deps) server.ToolHandlerFunc {
 		auditResult(ctx, deps, audit.Entry{
 			SessionID: sessID,
 			Tool:      "odoo_message_post",
-			Model:     model,
+			Model:     input.Model,
 			Method:    "message_post",
 			IDs:       []int64{recordID},
 		}, start, callErr)
 
 		if callErr != nil {
-			return toolErrorf("message_post failed: %s", callErr), nil
+			return toolErrorf("message_post failed: %s", callErr), nil, nil
 		}
 
 		// Parse the returned message ID(s)
 		var msgIDs []int64
 		if jsonErr := json.Unmarshal(result, &msgIDs); jsonErr == nil && len(msgIDs) > 0 {
-			return mcp.NewToolResultText(fmt.Sprintf(
-				`{"success": true, "message_id": %d, "model": "%s", "record_id": %d}`,
-				msgIDs[0], model, recordID,
-			)), nil
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf(
+					`{"success": true, "message_id": %d, "model": "%s", "record_id": %d}`,
+					msgIDs[0], input.Model, recordID,
+				)}},
+			}, nil, nil
 		}
 
-		return mcp.NewToolResultText(fmt.Sprintf(
-			`{"success": true, "model": "%s", "record_id": %d}`,
-			model, recordID,
-		)), nil
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf(
+				`{"success": true, "model": "%s", "record_id": %d}`,
+				input.Model, recordID,
+			)}},
+		}, nil, nil
 	}
 }
 
 // resolveSubtypeID looks up the integer ID of a mail.message.subtype by its XML ID.
-// e.g. "mail.mt_comment" → 1, "mail.mt_note" → 2
 func resolveSubtypeID(ctx context.Context, client interface {
 	Call(ctx context.Context, model, method string, ids []int64, kwargs map[string]interface{}) (json.RawMessage, error)
 }, xmlid string) (int64, error) {
-	// Split "mail.mt_comment" into module="mail", name="mt_comment"
 	module := ""
 	name := xmlid
 	for i := len(xmlid) - 1; i >= 0; i-- {

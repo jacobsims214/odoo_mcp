@@ -1,0 +1,40 @@
+issuer: http://localhost:8088/dex
+storage:
+  type: postgres
+  config:
+    host: amp-postgres-rw.amp.svc.cluster.local
+    port: 5432
+    database: dex
+    user: amp
+    # Real password: 25CRNRR8IDXZBogewI1Qf7JDoewjoaVhHYP9bQdvpWaunN74dhJaySWRQO8lrBA4
+    password: PLACEHOLDER
+    ssl:
+      mode: disable
+web:
+  http: 0.0.0.0:5556
+grpc:
+  addr: 0.0.0.0:5557
+oauth2:
+  skipApprovalScreen: true
+  passwordConnector: local
+enablePasswordDB: true
+staticClients:
+- id: odoo-mcp
+  name: Odoo MCP
+  public: true
+  grantTypes:
+  - authorization_code
+  - refresh_token
+  - password
+  - urn:ietf:params:oauth:grant-type:device_code
+- id: admin-ui
+  name: Admin UI
+  public: true
+  redirectURIs:
+  - http://localhost:8088/admin
+- id: claude-desktop
+  name: Claude Desktop
+  public: true
+  grantTypes:
+  - authorization_code
+  - refresh_token
