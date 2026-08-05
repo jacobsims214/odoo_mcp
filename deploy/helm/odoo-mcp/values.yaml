@@ -69,7 +69,8 @@ mcp:
     #   Defaults to dex.issuerURL if not set.
 
     # ── Database (PostgreSQL via CloudNative PG) ──────────────────────────
-    DATABASE_URL: "postgres://postgres@cnpg-rw:5432/mcp?sslmode=disable"
+    # Auto-templated from CNPG cluster name — leave empty to use the default.
+    DATABASE_URL: ""
     #   Connection string for the MCP server's PostgreSQL database.
 
   # Additional environment variables (map of key: value)
@@ -194,6 +195,16 @@ dex:
     clientCert: ""
     clientKey: ""
 
+  # ── Database (PostgreSQL) ──────────────────────────────────────────────
+  # Connection parameters for Dex's PostgreSQL storage backend.
+  # Override these when pointing Dex at an external or CNPG-managed database.
+  # Host is auto-templated from CNPG cluster name when cnpg.enabled — leave empty to use the default.
+  database:
+    host: ""
+    port: 5432
+    database: dex
+    user: postgres
+
   resources:
     limits:
       cpu: 500m
@@ -201,6 +212,19 @@ dex:
     requests:
       cpu: 100m
       memory: 64Mi
+
+# ── CloudNative PG (CNPG) Cluster ───────────────────────────────────────────
+cnpg:
+  # When enabled, the chart creates a CNPG Cluster custom resource.
+  # Disabled by default — set to true and configure storage/databases as needed.
+  enabled: false
+  instances: 2
+  storageSize: 10Gi
+  databases:
+    mcp: mcp
+    dex: dex
+  monitoring:
+    enabled: false
 
 # ── Secrets (generated as Kubernetes Secret) ────────────────────────────────────
 secrets:

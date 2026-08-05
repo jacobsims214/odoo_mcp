@@ -44,11 +44,19 @@ spec:
                 secretKeyRef:
                   name: {{ include "odoo-mcp.fullname" . }}-secrets
                   key: DEX_CLIENT_SECRET
+            {{- if .Values.cnpg.enabled }}
+            - name: DEX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-cnpg-superuser
+                  key: password
+          {{- else }}
             - name: DEX_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "odoo-mcp.fullname" . }}-secrets
                   key: DEX_DB_PASSWORD
+          {{- end }}
           volumeMounts:
             - name: config
               mountPath: /etc/dex

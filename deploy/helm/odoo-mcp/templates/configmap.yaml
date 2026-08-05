@@ -20,7 +20,7 @@ data:
   STATELESS_SESSIONS: {{ .Values.mcp.env.STATELESS_SESSIONS | default "false" | quote }}
   ODOO_MCP_PUBLIC_URL: {{ .Values.mcp.env.ODOO_MCP_PUBLIC_URL | quote }}
   DEX_PUBLIC_URL: {{ .Values.mcp.env.DEX_PUBLIC_URL | quote }}
-  DATABASE_URL: {{ .Values.mcp.env.DATABASE_URL | default "postgres://postgres@cnpg-rw:5432/mcp?sslmode=disable" | quote }}
+  DATABASE_URL: {{ .Values.mcp.env.DATABASE_URL | default (printf "postgres://postgres@%s-cnpg-rw.%s.svc.cluster.local:5432/mcp?sslmode=disable" (include "odoo-mcp.fullname" .) .Release.Namespace) | quote }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -34,11 +34,11 @@ data:
     storage:
       type: postgres
       config:
-        host: amp-postgres-rw.amp.svc.cluster.local
+        host: {{ .Values.dex.database.host | default (printf "%s-cnpg-rw.%s.svc.cluster.local" (include "odoo-mcp.fullname" .) .Release.Namespace) | quote }}
         port: 5432
         database: dex
-        user: amp
-        password: $DEX_DB_PASSWORD
+        user: {{ .Values.dex.database.user | default "postgres" | quote }}
+        password: ${DEX_DB_PASSWORD}
         ssl:
           mode: disable
     web:

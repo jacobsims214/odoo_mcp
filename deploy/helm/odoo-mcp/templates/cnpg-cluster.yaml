@@ -1,0 +1,22 @@
+{{- if .Values.cnpg.enabled }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ include "odoo-mcp.fullname" . }}-cnpg
+  labels:
+    {{- include "odoo-mcp.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.cnpg.instances }}
+  storage:
+    size: {{ .Values.cnpg.storageSize }}
+  enableSuperuserAccess: true
+  databases:
+    mcp: {{ .Values.cnpg.databases.mcp | quote }}
+    dex: {{ .Values.cnpg.databases.dex | quote }}
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+  monitoring:
+    enablePodMonitor: {{ .Values.cnpg.monitoring.enabled }}
+{{- end }}

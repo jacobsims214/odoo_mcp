@@ -13,7 +13,7 @@ mcp:
   replicaCount: 3
 
   image:
-    repository: ghcr.io/jacobsims214/amp/odoo-mcp
+    repository: ghcr.io/jacobsims214/odoo_mcp/odoo-mcp
     tag: latest
     pullPolicy: Always
 
@@ -27,8 +27,25 @@ mcp:
     DEX_PUBLIC_URL: "https://api.cloud.avware.io/dex"
     DEX_INTERNAL_URL: "http://odoo-mcp-dex:5556/dex"
 
-    # ── Logging ───────────────────────────────────────────────────────────
+    # ── Odoo Connection ───────────────────────────────────────────────────
+    ODOO_TIMEOUT: "30s"
+
+    # ── Transport ─────────────────────────────────────────────────────────
+    ODOO_MCP_TRANSPORT: "http"
+    ODOO_MCP_ADDR: ":8080"
+
+    # ── Guardrails (Security & Performance) ────────────────────────────────
+    ODOO_BLOCKED_MODELS: ""
+    ODOO_READ_ONLY: "false"
+    ODOO_RATE_LIMIT_RPS: "10"
+
+    # ── Logging & Audit ───────────────────────────────────────────────────
     ODOO_LOG_LEVEL: "info"
+    ODOO_AUDIT_LOG: "true"
+
+    # ── Database (PostgreSQL via CloudNative PG) ──────────────────────────
+    # Auto-templated from CNPG cluster name — unset to use the default
+    # DATABASE_URL: "postgres://postgres@cnpg-cluster-rw.namespace.svc.cluster.local:5432/mcp?sslmode=disable"
 
   resources:
     requests:
@@ -43,6 +60,11 @@ dex:
   replicaCount: 2
 
   issuerURL: "https://api.cloud.avware.io/dex"
+
+  # ── Database ────────────────────────────────────────────────────────────
+  # Host is auto-templated from CNPG cluster name — unset to use the default
+  # database:
+  #   host: cnpg-cluster-rw.namespace.svc.cluster.local
 
   # Dex uses existing CNPG database — no PVC needed
   persistence:
@@ -69,12 +91,14 @@ mcpoauth:
   replicaCount: 2
 
   image:
-    repository: ghcr.io/jacobsims214/amp/odoo-mcp-mcpoauth
+    repository: ghcr.io/jacobsims214/odoo_mcp/odoo-mcp-mcpoauth
     tag: latest
     pullPolicy: Always
 
   env:
+    BROKER_PORT: "8090"
     BROKER_PUBLIC_URL: "https://api.cloud.avware.io"
+    DEX_PUBLIC_URL: "https://api.cloud.avware.io/dex"
     DEX_URL: "http://odoo-mcp-dex:5556/dex"
     MCP_PUBLIC_URL: "https://api.cloud.avware.io/mcp"
     # Dex gRPC — no TLS for internal cluster communication
@@ -128,6 +152,17 @@ valkey:
       enabled: true
       size: 5Gi
       storageClass: ""
+
+# ── CloudNative PG (CNPG) Cluster ───────────────────────────────────────────
+cnpg:
+  enabled: true
+  instances: 2
+  storageSize: 10Gi
+  databases:
+    mcp: mcp
+    dex: dex
+  monitoring:
+    enabled: true
 
 # ── Secrets (set via --set or External Secrets Operator) ───────────────────────
 secrets:
