@@ -106,11 +106,21 @@ spec:
                 configMapKeyRef:
                   name: {{ include "odoo-mcp.fullname" . }}-config
                   key: DEX_PUBLIC_URL
-            - name: DATABASE_URL
+            # Database connection — built from CNPG superuser secret
+            - name: DB_HOST
+              value: {{ include "odoo-mcp.fullname" . }}-cnpg-rw.{{ .Release.Namespace }}.svc.cluster.local
+            - name: DB_USER
+              value: postgres
+            - name: DB_NAME
+              value: mcp
+            - name: DB_PASSWORD
               valueFrom:
-                configMapKeyRef:
-                  name: {{ include "odoo-mcp.fullname" . }}-config
-                  key: DATABASE_URL
+                secretKeyRef:
+                  name: {{ include "odoo-mcp.fullname" . }}-cnpg-superuser
+                  key: password
+                  optional: true
+            - name: DATABASE_URL
+              value: "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):5432/$(DB_NAME)?sslmode=disable"
             - name: ODOO_API_KEY
               valueFrom:
                 secretKeyRef:

@@ -43,10 +43,6 @@ mcp:
     ODOO_LOG_LEVEL: "info"
     ODOO_AUDIT_LOG: "true"
 
-    # ── Database (PostgreSQL via CloudNative PG) ──────────────────────────
-    # Auto-templated from CNPG cluster name — unset to use the default
-    # DATABASE_URL: "postgres://postgres@cnpg-cluster-rw.namespace.svc.cluster.local:5432/mcp?sslmode=disable"
-
   resources:
     requests:
       cpu: 250m
