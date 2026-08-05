@@ -23,6 +23,27 @@ spec:
     - host: {{ .Values.ingress.hostname }}
       http:
         paths:
+          - path: /authorize
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcpoauth
+                port:
+                  number: {{ .Values.mcpoauth.service.port }}
+          - path: /.well-known/oauth-authorization-server
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcpoauth
+                port:
+                  number: {{ .Values.mcpoauth.service.port }}
+          - path: /.well-known/oauth-protected-resource
+            pathType: Exact
+            backend:
+              service:
+                name: {{ include "odoo-mcp.fullname" . }}-mcpoauth
+                port:
+                  number: {{ .Values.mcpoauth.service.port }}
           - path: /mcp
             pathType: Prefix
             backend:

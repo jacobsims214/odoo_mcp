@@ -104,6 +104,12 @@ mcpoauth:
   # Broker HTTP port
   port: 8090
 
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8090
+    targetPort: 8090
+
   # Environment variables
   env:
     BROKER_PORT: "8090"
