@@ -94,7 +94,7 @@ mcpoauth:
   env:
     BROKER_PORT: "8090"
     BROKER_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io"
-    DEX_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/dex"
+    DEX_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io"
     DEX_URL: "http://odoo-mcp-dex:5556/dex"
     MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
     # Dex gRPC — no TLS for internal cluster communication

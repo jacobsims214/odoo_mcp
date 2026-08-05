@@ -115,6 +115,7 @@ mcpoauth:
     BROKER_PORT: "8090"
     BROKER_PUBLIC_URL: "http://localhost:8088"
     DEX_URL: "http://odoo-mcp-dex:5556/dex"
+    DEX_PUBLIC_URL: "http://localhost:8088"
     MCP_PUBLIC_URL: "http://odoo-mcp-mcp:8080"
     DEX_GRPC_ADDR: "odoo-mcp-dex:5557"
 

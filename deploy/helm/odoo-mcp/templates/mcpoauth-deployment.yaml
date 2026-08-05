@@ -37,6 +37,8 @@ spec:
               value: {{ .Values.mcpoauth.env.BROKER_PUBLIC_URL | quote }}
             - name: DEX_URL
               value: {{ .Values.mcpoauth.env.DEX_URL | quote }}
+            - name: DEX_PUBLIC_URL
+              value: {{ .Values.mcpoauth.env.DEX_PUBLIC_URL | quote }}
             - name: MCP_PUBLIC_URL
               value: {{ .Values.mcpoauth.env.MCP_PUBLIC_URL | quote }}
             - name: DEX_GRPC_ADDR
