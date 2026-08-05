@@ -16,7 +16,7 @@ data:
   ODOO_TIMEOUT: {{ .Values.mcp.env.ODOO_TIMEOUT | quote }}
   VALKEY_ADDR: {{ printf "%s-valkey-primary:%v" .Release.Name (.Values.valkey.primary.service.ports.valkey | default 6379) | quote }}
   DEX_ISSUER_URL: {{ required "dex.issuerURL is required when dex is enabled" .Values.dex.issuerURL | quote }}
-  DEX_INTERNAL_URL: {{ .Values.mcp.env.DEX_INTERNAL_URL | default .Values.dex.issuerURL | quote }}
+  DEX_INTERNAL_URL: {{ printf "http://%s-dex:%v/dex" (include "odoo-mcp.fullname" .) (.Values.dex.service.port | default 5556) | quote }}
   STATELESS_SESSIONS: {{ .Values.mcp.env.STATELESS_SESSIONS | default "false" | quote }}
   ODOO_MCP_PUBLIC_URL: {{ .Values.mcp.env.ODOO_MCP_PUBLIC_URL | quote }}
   DEX_PUBLIC_URL: {{ .Values.mcp.env.DEX_PUBLIC_URL | quote }}
