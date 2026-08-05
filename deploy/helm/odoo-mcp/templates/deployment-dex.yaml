@@ -25,6 +25,7 @@ spec:
           securityContext:
             {{- toYaml .Values.securityContext | default "{}" | nindent 12 }}
           image: "{{ .Values.dex.image.repository }}:{{ .Values.dex.image.tag }}"
+          command: ["dex"]
           args: ["serve", "/etc/dex/config.yaml"]
           imagePullPolicy: {{ .Values.dex.image.pullPolicy }}
           ports:
