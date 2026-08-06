@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Mapping represents the link between a Dex user and their Odoo credentials.
@@ -23,28 +24,33 @@ type Mapping struct {
 
 // Store provides CRUD operations for user mappings backed by PostgreSQL.
 type Store struct {
-	conn *pgx.Conn
+	pool *pgxpool.Pool
 }
 
-// Connect opens a single connection to PostgreSQL using the given database URL.
+// Connect opens a connection pool to PostgreSQL using the given database URL.
 // The caller must call Close when the Store is no longer needed.
 func Connect(ctx context.Context, databaseURL string) (*Store, error) {
-	conn, err := pgx.Connect(ctx, databaseURL)
+	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("userstore connect: %w", err)
 	}
-	return &Store{conn: conn}, nil
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("userstore ping: %w", err)
+	}
+	return &Store{pool: pool}, nil
 }
 
-// Close closes the underlying PostgreSQL connection.
+// Close closes the PostgreSQL connection pool.
 func (s *Store) Close() error {
-	return s.conn.Close(context.Background())
+	s.pool.Close()
+	return nil
 }
 
 // GetMapping retrieves a user mapping by Dex user ID.
 // Returns nil, nil if no mapping exists for the given ID.
 func (s *Store) GetMapping(ctx context.Context, dexUserID string) (*Mapping, error) {
-	row := s.conn.QueryRow(ctx,
+	row := s.pool.QueryRow(ctx,
 		`SELECT dex_user_id, email, odoo_url, odoo_db, odoo_login, odoo_uid, api_key_encrypted, created_at
 		 FROM user_mappings WHERE dex_user_id = $1`,
 		dexUserID,
@@ -73,7 +79,7 @@ func (s *Store) GetMapping(ctx context.Context, dexUserID string) (*Mapping, err
 
 // CreateMapping inserts a new user mapping. The DexUserID field must be unique.
 func (s *Store) CreateMapping(ctx context.Context, m *Mapping) error {
-	_, err := s.conn.Exec(ctx,
+	_, err := s.pool.Exec(ctx,
 		`INSERT INTO user_mappings
 			(dex_user_id, email, odoo_url, odoo_db, odoo_login, odoo_uid, api_key_encrypted, created_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
@@ -94,7 +100,7 @@ func (s *Store) CreateMapping(ctx context.Context, m *Mapping) error {
 
 // DeleteMapping removes a user mapping by Dex user ID.
 func (s *Store) DeleteMapping(ctx context.Context, dexUserID string) error {
-	tag, err := s.conn.Exec(ctx,
+	tag, err := s.pool.Exec(ctx,
 		`DELETE FROM user_mappings WHERE dex_user_id = $1`,
 		dexUserID,
 	)
@@ -109,7 +115,7 @@ func (s *Store) DeleteMapping(ctx context.Context, dexUserID string) error {
 
 // ListMappings returns all user mappings.
 func (s *Store) ListMappings(ctx context.Context) ([]*Mapping, error) {
-	rows, err := s.conn.Query(ctx,
+	rows, err := s.pool.Query(ctx,
 		`SELECT dex_user_id, email, odoo_url, odoo_db, odoo_login, odoo_uid, api_key_encrypted, created_at
 		 FROM user_mappings ORDER BY dex_user_id`,
 	)
