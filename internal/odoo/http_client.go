@@ -156,16 +156,29 @@ func (c *HTTPClient) Read(ctx context.Context, model string, ids []int64, fields
 }
 
 // Create creates a new record and returns its ID.
+// Odoo's @api.model_create_multi expects vals_list (a list of value dicts),
+// not vals (a single dict). The response can be a single ID or a list of IDs.
 func (c *HTTPClient) Create(ctx context.Context, model string, values map[string]interface{}) (int64, error) {
 	body := map[string]interface{}{
-		"vals": values,
+		"vals_list": []interface{}{values},
 	}
 
-	var result int64
+	var result json.RawMessage
 	if err := c.call(ctx, model, "create", body, &result); err != nil {
 		return 0, fmt.Errorf("create %s: %w", model, err)
 	}
-	return result, nil
+
+	// The response can be a single ID or a list of IDs.
+	// Try as list first, then as single int.
+	var ids []int64
+	if err := json.Unmarshal(result, &ids); err == nil && len(ids) > 0 {
+		return ids[0], nil
+	}
+	var id int64
+	if err := json.Unmarshal(result, &id); err == nil {
+		return id, nil
+	}
+	return 0, fmt.Errorf("unexpected create response: %s", string(result))
 }
 
 // Write updates records. Returns nil on success.
