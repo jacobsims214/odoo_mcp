@@ -171,10 +171,20 @@ cnpg:
   monitoring:
     enabled: true
 
-# ── Secrets (set via --set or External Secrets Operator) ───────────────────────
+# ── Secrets (managed externally via kubectl create secret) ─────────────────────
 secrets:
+  # Reference the externally-managed secret created with:
+  #   kubectl create secret generic odoo-mcp-gateway-secrets \
+  #     --namespace odoo-mcp-gateway \
+  #     --from-literal=KEY_STORE_ENCRYPTION_KEY="$(openssl rand -hex 32)" \
+  #     --from-literal=DEX_DB_PASSWORD="..." \
+  #     --from-literal=DEX_CLIENT_SECRET="..."
+  existingSecret: "odoo-mcp-gateway-secrets"
   # Dex PostgreSQL password for the existing CNPG database
   # Retrieve from: kubectl get secret -n amp amp-postgres-app -o jsonpath='{.data.password}' | base64 -d
   dexDbPassword: ""
   # Dex OIDC client shared secret
   dexClientSecret: ""
+  # Encryption key for the API key store (32-byte hex, AES-256).
+  # Stored in the external Secret referenced by existingSecret above.
+  keyStoreEncryptionKey: ""

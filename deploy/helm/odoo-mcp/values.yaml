@@ -235,9 +235,17 @@ cnpg:
 
 # ── Secrets (generated as Kubernetes Secret) ────────────────────────────────────
 secrets:
+  # Set this to reference an externally-managed Kubernetes Secret (created via
+  # kubectl create secret or External Secrets Operator). When set, the chart does
+  # NOT create the Secret itself — all downstream deployments reference this
+  # name. The Secret must contain DEX_CLIENT_SECRET, DEX_DB_PASSWORD (when
+  # cnpg.enabled is false), KEY_STORE_ENCRYPTION_KEY, and optionally ODOO_API_KEY.
+  # Leave empty to have the chart generate/manage the Secret (backward compat).
+  existingSecret: ""
   # Shared secret between Dex and the MCP server for OIDC
   dexClientSecret: ""
   # Encryption key for API key store (32-byte hex, generated via secrets.token_hex(32))
+  # Leave empty when using existingSecret — the key lives in the external Secret.
   keyStoreEncryptionKey: ""
   # PostgreSQL password for Dex storage
   # For the amp-postgres CNPG cluster, the password is stored in the

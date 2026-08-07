@@ -129,19 +129,19 @@ spec:
             - name: ODOO_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" (include "odoo-mcp.fullname" .)) }}
                   key: ODOO_API_KEY
                   optional: true
             - name: KEY_STORE_ENCRYPTION_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" (include "odoo-mcp.fullname" .)) }}
                   key: KEY_STORE_ENCRYPTION_KEY
                   optional: true
             - name: DEX_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" (include "odoo-mcp.fullname" .)) }}
                   key: DEX_CLIENT_SECRET
           {{- range $key, $value := .Values.mcp.extraEnv }}
             - name: {{ $key }}

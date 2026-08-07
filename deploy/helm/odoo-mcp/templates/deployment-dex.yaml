@@ -42,7 +42,7 @@ spec:
             - name: DEX_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" (include "odoo-mcp.fullname" .)) }}
                   key: DEX_CLIENT_SECRET
             {{- if .Values.cnpg.enabled }}
             - name: DEX_DB_PASSWORD
@@ -54,7 +54,7 @@ spec:
             - name: DEX_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "odoo-mcp.fullname" . }}-secrets
+                  name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" (include "odoo-mcp.fullname" .)) }}
                   key: DEX_DB_PASSWORD
           {{- end }}
           volumeMounts:
