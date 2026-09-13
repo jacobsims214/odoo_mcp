@@ -25,8 +25,7 @@ mcp:
     # ── URLs ──────────────────────────────────────────────────────────────
     ODOO_MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
     DEX_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/dex"
-    DEX_INTERNAL_URL: "http://odoo-mcp-dex:5556/dex"
-
+    # DEX_INTERNAL_URL: templated in configmap.yaml from the release name
     # ── Odoo Connection ───────────────────────────────────────────────────
     ODOO_TIMEOUT: "30s"
 
@@ -95,11 +94,10 @@ mcpoauth:
     BROKER_PORT: "8090"
     BROKER_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io"
     DEX_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io"
-    DEX_URL: "http://odoo-mcp-dex:5556/dex"
+    # DEX_URL: defaults to <release>-dex:5556 (see mcpoauth-deployment.yaml)
     MCP_PUBLIC_URL: "https://odoo-mcp.cloud.avware.io/mcp"
     # Dex gRPC — no TLS for internal cluster communication
-    DEX_GRPC_ADDR: "odoo-mcp-dex:5557"
-
+    # DEX_GRPC_ADDR: defaults to <release>-dex:5557 (see mcpoauth-deployment.yaml)
   resources:
     requests:
       cpu: 100m

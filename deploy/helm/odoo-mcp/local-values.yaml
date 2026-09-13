@@ -191,10 +191,9 @@ mcpoauth:
   env:
     BROKER_PORT: "8090"
     BROKER_PUBLIC_URL: "http://localhost:8088"
-    DEX_URL: "http://odoo-mcp-dex:5556/dex"
+    # DEX_URL: defaults to <release>-dex:5556 (see mcpoauth-deployment.yaml)
     MCP_PUBLIC_URL: "http://odoo-mcp-mcp:8080"
-    DEX_GRPC_ADDR: "odoo-mcp-dex:5557"
-
+    # DEX_GRPC_ADDR: defaults to <release>-dex:5557 (see mcpoauth-deployment.yaml)
 envoy:
   enabled: true
   image:
