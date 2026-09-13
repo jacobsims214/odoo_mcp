@@ -35,14 +35,20 @@ spec:
               value: {{ .Values.mcpoauth.env.BROKER_PORT | quote }}
             - name: BROKER_PUBLIC_URL
               value: {{ .Values.mcpoauth.env.BROKER_PUBLIC_URL | quote }}
+            {{/* Default to the release-derived Service name, exactly as
+                 configmap.yaml does. Hardcoding it in values silently breaks
+                 whenever the release name is not "odoo-mcp" — on avware-prod
+                 the release is "odoo-mcp-gateway", so the Service is
+                 odoo-mcp-gateway-dex and a hardcoded "odoo-mcp-dex" resolves
+                 to nothing. An explicit value still wins if one is set. */}}
             - name: DEX_URL
-              value: {{ .Values.mcpoauth.env.DEX_URL | quote }}
+              value: {{ .Values.mcpoauth.env.DEX_URL | default (printf "http://%s-dex:%v/dex" (include "odoo-mcp.fullname" .) (.Values.dex.service.port | default 5556)) | quote }}
             - name: DEX_PUBLIC_URL
               value: {{ .Values.mcpoauth.env.DEX_PUBLIC_URL | quote }}
             - name: MCP_PUBLIC_URL
               value: {{ .Values.mcpoauth.env.MCP_PUBLIC_URL | quote }}
             - name: DEX_GRPC_ADDR
-              value: {{ .Values.mcpoauth.env.DEX_GRPC_ADDR | quote }}
+              value: {{ .Values.mcpoauth.env.DEX_GRPC_ADDR | default (printf "%s-dex:5557" (include "odoo-mcp.fullname" .)) | quote }}
           volumeMounts: []
           livenessProbe:
             httpGet:
