@@ -182,10 +182,18 @@ func (c *HTTPClient) Create(ctx context.Context, model string, values map[string
 }
 
 // Write updates records. Returns nil on success.
+//
+// The body keys become the Odoo method's named kwargs, and Odoo's signature is
+// write(self, vals) — so the payload key must be "vals". Sending "values"
+// reaches Odoo as an unexpected kwarg with vals absent, and every write fails
+// with "missing a required argument: 'vals'".
+//
+// This mirrors the same class of bug already fixed in Create, where Odoo's
+// @api.model_create_multi expects vals_list.
 func (c *HTTPClient) Write(ctx context.Context, model string, ids []int64, values map[string]interface{}) error {
 	body := map[string]interface{}{
-		"ids":    ids,
-		"values": values,
+		"ids":  ids,
+		"vals": values,
 	}
 
 	// Response is bool, but we discard it
