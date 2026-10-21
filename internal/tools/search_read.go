@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -27,6 +28,12 @@ func searchReadTool() *mcp.Tool {
 		Description: `Search and read Odoo records in a single atomic operation.
 Returns records matching the domain with the requested fields.
 Prefer this over separate search + read calls — it runs in one SQL transaction.
+
+IMPORTANT — limit defaults to 10. If you are COUNTING records, pass an explicit
+high limit or limit=0 (no limit). A result of exactly N rows when you asked for
+a limit of N usually means there are more; this tool appends an explicit
+truncation notice when that happens, so read the whole response, not just the
+JSON array.
 
 Examples:
 - Find all active companies: model="res.partner", domain='[["is_company","=",true],["active","=",true]]'
@@ -94,8 +101,51 @@ func makeSearchReadHandler(deps Deps) func(context.Context, *mcp.CallToolRequest
 		if err != nil {
 			return toolErrorf("encode result: %s", err), nil, nil
 		}
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{&mcp.TextContent{Text: string(jsonBytes)}},
-		}, nil, nil
+
+		content := []mcp.Content{&mcp.TextContent{Text: string(jsonBytes)}}
+
+		// 6. Truncation notice.
+		//
+		// A bare JSON array gives the caller no way to tell "this is everything"
+		// from "this is the first `limit` of many" — and the default limit is 10,
+		// so an agent that omits `limit` and counts the rows it got back silently
+		// undercounts. That failure mode produced repeatedly wrong audience
+		// numbers before this check existed, each one plausible enough to ship.
+		//
+		// Only when the page came back exactly full, since that is the only case
+		// that is ambiguous. Costs one search_count on that path and nothing
+		// otherwise. A failing count is not an error: the records are valid and
+		// the caller still gets them, just without the exact total.
+		if limit > 0 && len(records) == limit {
+			if total, ok := searchCount(ctx, client, input.Model, domain); ok && total > len(records) {
+				content = append(content, &mcp.TextContent{Text: fmt.Sprintf(
+					"\n\nTRUNCATED: returned %d of %d matching records (limit=%d, offset=%d). "+
+						"The array above is NOT the full result set. Re-run with a higher limit, "+
+						"limit=0 for all records, or page with offset.",
+					len(records), total, limit, offset)})
+			}
+		}
+
+		return &mcp.CallToolResult{Content: content}, nil, nil
 	}
+}
+
+// searchCount returns the true number of records matching domain.
+//
+// Used only to turn an ambiguous full page into an explicit truncation notice,
+// so the caller is never left guessing whether it saw everything. Returns
+// ok=false on any failure — a missing total must never fail a read that
+// actually succeeded.
+func searchCount(ctx context.Context, client odoo.OdooClient, model string, domain odoo.Domain) (int, bool) {
+	raw, err := client.Call(ctx, model, "search_count", nil, map[string]interface{}{
+		"domain": json.RawMessage(domain),
+	})
+	if err != nil {
+		return 0, false
+	}
+	var total int
+	if err := json.Unmarshal(raw, &total); err != nil {
+		return 0, false
+	}
+	return total, true
 }
